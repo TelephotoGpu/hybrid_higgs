@@ -1,6 +1,6 @@
 all: build verilate compile run show
 
-lint: clean build verilate_lint
+lint: clean build verilate_lint verilate_lint_img
 
 clean:
 	rm -f hdl/*
@@ -29,6 +29,10 @@ verilate:
 	hdl/*.sv
 
 
+# gen.js writes one netlist per datapath (both define module piston):
+# hdl/piston.v (FFT) and hdl/piston_img.v (image, doc/kernel/README.md)
+PISTON_COMMON_V = $(filter-out hdl/piston.v hdl/piston_img.v,$(wildcard hdl/*.v))
+
 verilate_lint:
 	verilator \
 	--Wno-WIDTH \
@@ -38,8 +42,20 @@ verilate_lint:
 	+1364-2001ext+v \
 	--top-module piston \
 	../../datapath/rtl/*.v \
-	hdl/*.v 
+	$(PISTON_COMMON_V) hdl/piston.v
 	dot -Tsvg hdl/piston.dot > hdl/piston.svg
+
+verilate_lint_img:
+	verilator \
+	--Wno-WIDTH \
+	--Wno-SELRANGE \
+	--lint-only \
+	+define+VERILATE \
+	+1364-2001ext+v \
+	--top-module piston \
+	../../datapath/rtl/*.v \
+	../../datapath/image/rtl/img_datapath.v \
+	$(PISTON_COMMON_V) hdl/piston_img.v
 
 compile: verilate
 	make -j -C obj_dir/ -f Vpiston.mk Vpiston

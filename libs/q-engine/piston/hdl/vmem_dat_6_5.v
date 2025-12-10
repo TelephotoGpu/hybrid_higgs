@@ -80,7 +80,7 @@
    reg                                        q_mem_payload_we[15:0];
    reg                                        q_mem_valid[15:0];
    wire                                       q_mem_ready[15:0];
-   
+
    wire [11:0]              t_mem_payload_addr[15:0];
    wire [31:0]               t_mem_payload_data[15:0];
    wire                                        t_mem_valid[15:0];
@@ -101,31 +101,31 @@
    reg [15:0] q_idma_addr[3:0];
    reg                           q_idma_we[3:0];
    reg                           q_idma_valid[3:0];
-   
+
    reg [31:0] odma_dat[3:0];
 
 
-   
+
    assign idma_addr[0]=t_idma_0_dat[47:32];
    assign idma_data[0]=t_idma_0_dat[31:0];
    assign idma_we[0]=t_idma_0_dat[48];
 
-   assign i_odma_0_dat=odma_dat[0]; 
+   assign i_odma_0_dat=odma_dat[0];
    assign idma_addr[1]=t_idma_1_dat[47:32];
    assign idma_data[1]=t_idma_1_dat[31:0];
    assign idma_we[1]=t_idma_1_dat[48];
 
-   assign i_odma_1_dat=odma_dat[1]; 
+   assign i_odma_1_dat=odma_dat[1];
    assign idma_addr[2]=t_idma_2_dat[47:32];
    assign idma_data[2]=t_idma_2_dat[31:0];
    assign idma_we[2]=t_idma_2_dat[48];
 
-   assign i_odma_2_dat=odma_dat[2]; 
+   assign i_odma_2_dat=odma_dat[2];
    assign idma_addr[3]=t_idma_3_dat[47:32];
    assign idma_data[3]=t_idma_3_dat[31:0];
    assign idma_we[3]=t_idma_3_dat[48];
 
-   assign i_odma_3_dat=odma_dat[3]; 
+   assign i_odma_3_dat=odma_dat[3];
 
    always @(posedge clk) begin
       for(i=0;i<4;i = i + 1) begin
@@ -201,7 +201,7 @@
    reg [31:0]              q_odma_dat_half[1:0][3:0];
    reg                                       n_odma_valid_half[1:0][3:0];
    reg                                       q_odma_valid_half[1:0][3:0];
-   
+
    always @(*) begin
       for(ii=0;ii<4;ii = ii + 1) begin
          n_bank[ii][0]=(q_idma_valid[ii]&q_ready[ii])?q_idma_addr[ii]:0;
@@ -227,7 +227,7 @@
          n_bank_quarter[ii]=q_bank[ii][2];
       end
 
-      for(ii=0;ii<4;ii = ii + 1) begin      
+      for(ii=0;ii<4;ii = ii + 1) begin
          n_odma_dat_half[0][ii]=(~q_bank_quarter[ii][2] & q_odma_valid_quarter[0][ii])?q_odma_dat_quarter[0][ii]:q_odma_dat_quarter[1][ii];
          n_odma_valid_half[0][ii]=(~q_bank_quarter[ii][2] & q_odma_valid_quarter[0][ii])|(q_bank_quarter[ii][2] & q_odma_valid_quarter[1][ii]);
 
@@ -277,60 +277,60 @@
 
    assign s_k=t_ka_dat[195:192];
    assign vs_we=(tvs_valid && s_k<8)?1:0;
-   
+
    assign t_vs_payload_addr[0]=t_ka_dat[11:0];
    assign t_vs_payload_data[0]=t_ivs_dat[31:0];
-   
+
    assign t_vs_payload_addr[1]=t_ka_dat[23:12];
    assign t_vs_payload_data[1]=t_ivs_dat[63:32];
-   
+
    assign t_vs_payload_addr[2]=t_ka_dat[35:24];
    assign t_vs_payload_data[2]=t_ivs_dat[95:64];
-   
+
    assign t_vs_payload_addr[3]=t_ka_dat[47:36];
    assign t_vs_payload_data[3]=t_ivs_dat[127:96];
-   
+
    assign t_vs_payload_addr[4]=t_ka_dat[59:48];
    assign t_vs_payload_data[4]=t_ivs_dat[159:128];
-   
+
    assign t_vs_payload_addr[5]=t_ka_dat[71:60];
    assign t_vs_payload_data[5]=t_ivs_dat[191:160];
-   
+
    assign t_vs_payload_addr[6]=t_ka_dat[83:72];
    assign t_vs_payload_data[6]=t_ivs_dat[223:192];
-   
+
    assign t_vs_payload_addr[7]=t_ka_dat[95:84];
    assign t_vs_payload_data[7]=t_ivs_dat[255:224];
-   
+
    assign t_vs_payload_addr[8]=t_ka_dat[107:96];
    assign t_vs_payload_data[8]=t_ivs_dat[287:256];
-   
+
    assign t_vs_payload_addr[9]=t_ka_dat[119:108];
    assign t_vs_payload_data[9]=t_ivs_dat[319:288];
-   
+
    assign t_vs_payload_addr[10]=t_ka_dat[131:120];
    assign t_vs_payload_data[10]=t_ivs_dat[351:320];
-   
+
    assign t_vs_payload_addr[11]=t_ka_dat[143:132];
    assign t_vs_payload_data[11]=t_ivs_dat[383:352];
-   
+
    assign t_vs_payload_addr[12]=t_ka_dat[155:144];
    assign t_vs_payload_data[12]=t_ivs_dat[415:384];
-   
+
    assign t_vs_payload_addr[13]=t_ka_dat[167:156];
    assign t_vs_payload_data[13]=t_ivs_dat[447:416];
-   
+
    assign t_vs_payload_addr[14]=t_ka_dat[179:168];
    assign t_vs_payload_data[14]=t_ivs_dat[479:448];
-   
+
    assign t_vs_payload_addr[15]=t_ka_dat[191:180];
    assign t_vs_payload_data[15]=t_ivs_dat[511:480];
-   
+
    assign k_ctrl=s_k;
 
 //[511:0];
 
-   
+
 memory_slice
 #(.MEMINIT(VMEM0),.DEPTH(VMEM_SIZE))
 mem_slice_0
@@ -341,15 +341,15 @@ mem_slice_0
  .t0_data(t_vs_payload_data[0]),
  .t0_we(vs_we),//[0]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(tvs_ready),
-      
+
 
  .i0_addr(i_vs_payload_addr[0]),
  .i0_data(i_ovs_dat[31:0]),
- 
+
  .i0_valid(ivs_valid),
-      
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -363,7 +363,7 @@ mem_slice_0
  .i1_valid(t_mem_valid[0]),
  .i1_ready(1'b1)//t_mem_ready[0])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM1),.DEPTH(VMEM_SIZE))
 mem_slice_1
@@ -374,15 +374,15 @@ mem_slice_1
  .t0_data(t_vs_payload_data[1]),
  .t0_we(vs_we),//[1]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[1]),
  .i0_data(i_ovs_dat[63:32]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -396,7 +396,7 @@ mem_slice_1
  .i1_valid(t_mem_valid[1]),
  .i1_ready(1'b1)//t_mem_ready[1])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM2),.DEPTH(VMEM_SIZE))
 mem_slice_2
@@ -407,15 +407,15 @@ mem_slice_2
  .t0_data(t_vs_payload_data[2]),
  .t0_we(vs_we),//[2]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[2]),
  .i0_data(i_ovs_dat[95:64]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -429,7 +429,7 @@ mem_slice_2
  .i1_valid(t_mem_valid[2]),
  .i1_ready(1'b1)//t_mem_ready[2])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM3),.DEPTH(VMEM_SIZE))
 mem_slice_3
@@ -440,15 +440,15 @@ mem_slice_3
  .t0_data(t_vs_payload_data[3]),
  .t0_we(vs_we),//[3]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[3]),
  .i0_data(i_ovs_dat[127:96]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -462,7 +462,7 @@ mem_slice_3
  .i1_valid(t_mem_valid[3]),
  .i1_ready(1'b1)//t_mem_ready[3])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM4),.DEPTH(VMEM_SIZE))
 mem_slice_4
@@ -473,15 +473,15 @@ mem_slice_4
  .t0_data(t_vs_payload_data[4]),
  .t0_we(vs_we),//[4]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[4]),
  .i0_data(i_ovs_dat[159:128]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -495,7 +495,7 @@ mem_slice_4
  .i1_valid(t_mem_valid[4]),
  .i1_ready(1'b1)//t_mem_ready[4])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM5),.DEPTH(VMEM_SIZE))
 mem_slice_5
@@ -506,15 +506,15 @@ mem_slice_5
  .t0_data(t_vs_payload_data[5]),
  .t0_we(vs_we),//[5]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[5]),
  .i0_data(i_ovs_dat[191:160]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -528,7 +528,7 @@ mem_slice_5
  .i1_valid(t_mem_valid[5]),
  .i1_ready(1'b1)//t_mem_ready[5])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM6),.DEPTH(VMEM_SIZE))
 mem_slice_6
@@ -539,15 +539,15 @@ mem_slice_6
  .t0_data(t_vs_payload_data[6]),
  .t0_we(vs_we),//[6]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[6]),
  .i0_data(i_ovs_dat[223:192]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -561,7 +561,7 @@ mem_slice_6
  .i1_valid(t_mem_valid[6]),
  .i1_ready(1'b1)//t_mem_ready[6])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM7),.DEPTH(VMEM_SIZE))
 mem_slice_7
@@ -572,15 +572,15 @@ mem_slice_7
  .t0_data(t_vs_payload_data[7]),
  .t0_we(vs_we),//[7]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[7]),
  .i0_data(i_ovs_dat[255:224]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -594,7 +594,7 @@ mem_slice_7
  .i1_valid(t_mem_valid[7]),
  .i1_ready(1'b1)//t_mem_ready[7])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM8),.DEPTH(VMEM_SIZE))
 mem_slice_8
@@ -605,15 +605,15 @@ mem_slice_8
  .t0_data(t_vs_payload_data[8]),
  .t0_we(vs_we),//[8]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[8]),
  .i0_data(i_ovs_dat[287:256]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -627,7 +627,7 @@ mem_slice_8
  .i1_valid(t_mem_valid[8]),
  .i1_ready(1'b1)//t_mem_ready[8])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM9),.DEPTH(VMEM_SIZE))
 mem_slice_9
@@ -638,15 +638,15 @@ mem_slice_9
  .t0_data(t_vs_payload_data[9]),
  .t0_we(vs_we),//[9]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[9]),
  .i0_data(i_ovs_dat[319:288]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -660,7 +660,7 @@ mem_slice_9
  .i1_valid(t_mem_valid[9]),
  .i1_ready(1'b1)//t_mem_ready[9])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM10),.DEPTH(VMEM_SIZE))
 mem_slice_10
@@ -671,15 +671,15 @@ mem_slice_10
  .t0_data(t_vs_payload_data[10]),
  .t0_we(vs_we),//[10]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[10]),
  .i0_data(i_ovs_dat[351:320]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -693,7 +693,7 @@ mem_slice_10
  .i1_valid(t_mem_valid[10]),
  .i1_ready(1'b1)//t_mem_ready[10])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM11),.DEPTH(VMEM_SIZE))
 mem_slice_11
@@ -704,15 +704,15 @@ mem_slice_11
  .t0_data(t_vs_payload_data[11]),
  .t0_we(vs_we),//[11]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[11]),
  .i0_data(i_ovs_dat[383:352]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -726,7 +726,7 @@ mem_slice_11
  .i1_valid(t_mem_valid[11]),
  .i1_ready(1'b1)//t_mem_ready[11])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM12),.DEPTH(VMEM_SIZE))
 mem_slice_12
@@ -737,15 +737,15 @@ mem_slice_12
  .t0_data(t_vs_payload_data[12]),
  .t0_we(vs_we),//[12]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[12]),
  .i0_data(i_ovs_dat[415:384]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -759,7 +759,7 @@ mem_slice_12
  .i1_valid(t_mem_valid[12]),
  .i1_ready(1'b1)//t_mem_ready[12])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM13),.DEPTH(VMEM_SIZE))
 mem_slice_13
@@ -770,15 +770,15 @@ mem_slice_13
  .t0_data(t_vs_payload_data[13]),
  .t0_we(vs_we),//[13]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[13]),
  .i0_data(i_ovs_dat[447:416]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -792,7 +792,7 @@ mem_slice_13
  .i1_valid(t_mem_valid[13]),
  .i1_ready(1'b1)//t_mem_ready[13])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM14),.DEPTH(VMEM_SIZE))
 mem_slice_14
@@ -803,15 +803,15 @@ mem_slice_14
  .t0_data(t_vs_payload_data[14]),
  .t0_we(vs_we),//[14]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[14]),
  .i0_data(i_ovs_dat[479:448]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -825,7 +825,7 @@ mem_slice_14
  .i1_valid(t_mem_valid[14]),
  .i1_ready(1'b1)//t_mem_ready[14])
  );
- 
+
 memory_slice
 #(.MEMINIT(VMEM15),.DEPTH(VMEM_SIZE))
 mem_slice_15
@@ -836,15 +836,15 @@ mem_slice_15
  .t0_data(t_vs_payload_data[15]),
  .t0_we(vs_we),//[15]),
  .t0_valid(tvs_valid),
- 
+
  .t0_ready(),
-  
+
 
  .i0_addr(i_vs_payload_addr[15]),
  .i0_data(i_ovs_dat[511:480]),
- 
+
  .i0_valid(),
-  
+
 
  .i0_ready(ivs_ready),
  //port 1
@@ -858,7 +858,7 @@ mem_slice_15
  .i1_valid(t_mem_valid[15]),
  .i1_ready(1'b1)//t_mem_ready[15])
  );
- 
+
 
 
 endmodule

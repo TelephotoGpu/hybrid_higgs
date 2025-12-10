@@ -1,7 +1,8 @@
 // Image kernel datapath for the Higgs Q-engine (piston).
 //
-// Replaces the 16I/16Q complex FFT datapath when HIGGS_IMG_DATAPATH is
-// defined. Bit-exact contract: doc/kernel/NOTES.md section 5. Reference
+// Replaces the 16I/16Q complex FFT datapath in the generated netlist
+// libs/q-engine/piston/hdl/piston_img.v (selected by HIGGS_DATAPATH=img;
+// node macro libs/datapath/lib/img-datapath.js). Bit-exact contract: doc/kernel/NOTES.md section 5. Reference
 // model: libs/datapath/image/img_model.py (class Datapath).
 //
 // One beat = one k8 row (64 u8 pixels) joined with one k9 row

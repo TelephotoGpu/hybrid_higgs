@@ -8,7 +8,7 @@ module perm_addr_dat_1_1 (
 );
 
    assign i_0_dat[67:64]=t_0_dat[67:64];
-   
+
 
 wire [0:0] adr_0_4;
 wire [1:0] adr_0_2;

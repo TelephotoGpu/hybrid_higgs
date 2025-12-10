@@ -46,7 +46,10 @@ const k_omuxw = {width: 4, capacity: 1};
 */
 
 console.log(4+32/constants.div*(11+constants.divlog2))
-module.exports = function (g) {
+// dpGen: datapath graph builder, (g) => (dpTargets) => {k1}. Defaults to
+// the FFT datapath; gen.js also passes datapath/lib/img-datapath.
+module.exports = function (g, dpGen) {
+    dpGen = dpGen || datapath;
     return () => {
         const cmd = g('instr');
 //	const cmd_s0_1 = g();
@@ -143,7 +146,7 @@ module.exports = function (g) {
 	};
 	omux(k13w,'k13')(imux,'k13');
 
-	const dpInitiators = datapath(g)(dpTargets);
+	const dpInitiators = dpGen(g)(dpTargets);
 
 	dpInitiators.k1(imux,'k1');
 	

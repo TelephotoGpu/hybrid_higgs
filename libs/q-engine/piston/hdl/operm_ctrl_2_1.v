@@ -21,19 +21,19 @@ always @(*)
     case(k_ctrl)
         8 : begin
            invalid_op = 0;
-        end 
+        end
         9 : begin
            invalid_op = 0;
-        end 
+        end
         13 : begin
            invalid_op = 0;
-        end 
+        end
         14 : begin
            invalid_op = 0;
-        end 
+        end
         15 : begin
            invalid_op = 0;
-        end 
+        end
         default: begin
           invalid_op= 1;
         end

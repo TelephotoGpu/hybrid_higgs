@@ -50,7 +50,7 @@ module vmem_ctrl_6_5
    assign t_idma_0_ack=idma_ready[0];
    assign t_idma_1_ack=idma_ready[1];
    assign t_idma_2_ack=idma_ready[2];
-   assign t_idma_3_ack=idma_ready[3];   
+   assign t_idma_3_ack=idma_ready[3];
 
    assign i_odma_0_req=odma_valid[0];
    assign i_odma_1_req=odma_valid[1];

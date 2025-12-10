@@ -39,6 +39,6 @@ always @*
             i_0_dat = { {I_0_DAT_WIDTH - 15{t_0_dat_sign}}, {15{~t_0_dat_sign}} };
         else
             i_0_dat = { {I_0_DAT_WIDTH - 16{rounded_data[15]}}, rounded_data[15:0]};
-   
+
 
 endmodule

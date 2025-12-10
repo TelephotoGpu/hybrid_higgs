@@ -2,7 +2,7 @@
   const range = require('lodash.range');
 %>
 
-    module memory_slice #(parameter MEMINIT = "vmem0.mif")
+    module memory_slice #(parameter MEMINIT = "vmem0.mif",parameter DEPTH=4096)
    (
     input              clk, reset_n,
     //Port 0
@@ -34,7 +34,7 @@
    
    
    dpram
-     #(.MEMINIT(MEMINIT))
+     #(.MEMINIT(MEMINIT),.DEPTH(DEPTH))
    dpram_inst
      (.clk(clk),
       .addr_0(t0_addr),

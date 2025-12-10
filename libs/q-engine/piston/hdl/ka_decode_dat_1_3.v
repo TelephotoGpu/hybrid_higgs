@@ -11,7 +11,7 @@ module ka_decode_dat_1_3 (
    assign i_k_sk_dat=t_ka_dat[195:192];
    assign i_k_lk_dat=t_ka_dat[195:192];
    assign i_ka_dat=t_ka_dat;
-   
+
    assign k_ctrl=t_ka_dat[195:192];
-   
+
 endmodule

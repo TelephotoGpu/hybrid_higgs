@@ -23,9 +23,10 @@ Status legend: `[ ]` todo, `[~]` in progress, `[x]` done.
    encoder/decoder, self-tests, and RTL vector generator. See NOTES §8.
    `python3 libs/datapath/image/img_model.py selftest` passes.
 5. `[x]` **Datapath RTL + compile**: `libs/datapath/image/rtl/img_datapath.v`
-   with a standalone Verilator unit test against the model. Integrate it into
-   `piston.v` behind `HIGGS_IMG_DATAPATH`, with the make/tcl selection
-   `HIGGS_DATAPATH=img`. Then Verilator lint, and a Vivado synth + route of
+   with a standalone Verilator unit test against the model. Integrate it by
+   generating a second piston netlist, `hdl/piston_img.v` (`gen.js` +
+   `img-datapath.js`; reqack pinned; earlier `hdl/` hand edits moved into
+   the generator), selected in make/tcl by `HIGGS_DATAPATH=img`. Then Verilator lint, and a Vivado synth + route of
    CS12 with the image datapath. Done: the unit test is bit-exact at 0/30/70 %
    stall, and CS12 routes at 125 MHz (WNS +0.647 ns, 134 DSP). See NOTES §9.
 6. `[x]` **C library + instruction schedule**:
@@ -46,11 +47,16 @@ Status legend: `[ ]` todo, `[~]` in progress, `[x]` done.
 * M4: C library. `[x]`
 * M5: test_image_1 on Verilator and XSIM (plus a regression check of
   test_fft_lib_1 with the default datapath). `[x]`
+* M6: replace the hand edit of generated `piston.v` with a generated
+  `piston_img.v` (reqack pin, `img-datapath.js`, make/tcl netlist selection,
+  earlier `hdl/` hand edits moved into the generator). `[x]`
+* M7: simple numpy fixed-point model for prototyping and checking Verilog
+  output (`libs/datapath/image/simple_model.py`, NOTES §8.1). `[x]`
 
 ## Risks / open items
 * ~~CPU↔vector ordering~~: there is no hardware fence. An SK15 token fence
   hung (MVVK15 over-pushes when the vector unit idles, NOTES §1). The
   library now uses an LK13/SK13 token fence (NOTES §6.3).
 * ~~Vivado may map 8x8 multipliers to LUTs~~: resolved, all 128 are in DSPs.
-* Full-platform Verilator builds take ~15 min each; iterate with the unit
-  test first.
+* A clean full-platform Verilator build + run of test_image_1 takes about
+  4.5 min; iterate with the unit test first.

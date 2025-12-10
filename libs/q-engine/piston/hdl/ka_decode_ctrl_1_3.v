@@ -3,12 +3,12 @@ module ka_decode_ctrl_1_3 (
     input 	t_ka_req,
     output wire t_ka_ack,
     output wire	  i_k_sk_req,
-    input         i_k_sk_ack,					     
+    input         i_k_sk_ack,
     output wire   i_k_lk_req,
-    input         i_k_lk_ack,					     
+    input         i_k_lk_ack,
     output wire   i_ka_req,
     input wire    i_ka_ack,
-    input wire [3:0] k_ctrl,					     
+    input wire [3:0] k_ctrl,
     input 	clk, reset_n
 );
 

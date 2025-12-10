@@ -2,6 +2,54 @@
 
 const range = require('lodash.range');
 
+const vmemParameters = range(32).reduce((res, index) => {
+    res['VMEM' + index] = pindex => 'vmem' + index + '.mif';
+    return res;
+}, {VMEM_SIZE: () => 4096});
+
+const vmemCtrl2data = p => [
+    ['idma_valid',  'idma_valid'  + p.id,  4],
+    ['idma_ready',  'idma_ready'  + p.id, -4],
+
+    ['odma_valid',  'odma_valid'  + p.id, -4],
+    ['odma_ready',  'odma_ready'  + p.id,  4],
+
+    ['tvs_valid',  'tvs_valid'  + p.id,  1],
+    ['tvs_ready',  'tvs_ready'  + p.id, -1],
+
+    ['ivs_valid',  'ivs_valid'  + p.id, -1],
+    ['ivs_ready',  'ivs_ready'  + p.id,  1],
+
+    ['k_ctrl',  'k_ctrl'  + p.id, -4]
+];
+
+// Same text as reqack's standard data-path instance, except that Xilinx
+// builds (HIGGS_FPGA_XILINX) instantiate vmem_dat_<t>_<i>_1_1 (hdl/, not
+// generated) instead of the generated vmem_dat_<t>_<i>.
+const vectorDim = size => {
+    const body = (Math.abs(size) > 1) ? '[' + (Math.abs(size) - 1) + ':0]' : '';
+    return ((' ').repeat(20) + body + ' ').slice(-12);
+};
+const vmemData = p => {
+    const wires = vmemCtrl2data(p);
+    const modName = 'vmem_dat_' + p.t.length + '_' + p.i.length;
+    const ports = p.t.map(b => [b.port, b.wire])
+        .concat(p.i.map(b => [b.port, b.wire]))
+        .concat(wires.map(sig => [sig[0], sig[1]]))
+        .concat([['clk', 'clk'], ['reset_n', 'reset_n']]);
+    return wires.map(sig => 'wire ' + vectorDim(sig[2]) + sig[1] + ';').join('\n') + '\n' +
+        '`ifdef HIGGS_FPGA_XILINX\n' +
+        modName + '_1_1 #(\n' +
+        '`else\n' +
+        modName + ' #(\n' +
+        '`endif\n' +
+        Object.keys(vmemParameters).map(param =>
+            '    .' + param + '(NODE' + p.id + '_' + param + ')').join(',\n') +
+        '\n) unode' + p.id + ' (\n' +
+        ports.map(pair => `    .${pair[0]}(${pair[1]})`).join(',\n') +
+        '\n);';
+};
+
 module.exports = {
     funnel: {
         // ctrl: p => `funnel_ctrl unode${p.id} ();`,
@@ -119,26 +167,9 @@ module.exports = {
 	]
     },
     vmem: {
-	parameters: range(32).reduce((res, index) => {
-	    res['VMEM' + index] = pindex => 'vmem' + index + '.mif';
-            return res;
-	}, {VMEM_SIZE: () => 4096}),
-	    
-	ctrl2data: p => [
-	    ['idma_valid',  'idma_valid'  + p.id,  4],
-	    ['idma_ready',  'idma_ready'  + p.id, -4],
-
-	    ['odma_valid',  'odma_valid'  + p.id, -4],
-	    ['odma_ready',  'odma_ready'  + p.id,  4],
-
-	    ['tvs_valid',  'tvs_valid'  + p.id,  1],
-	    ['tvs_ready',  'tvs_ready'  + p.id, -1],
-
-	    ['ivs_valid',  'ivs_valid'  + p.id, -1],
-	    ['ivs_ready',  'ivs_ready'  + p.id,  1],
-	    
-            ['k_ctrl',  'k_ctrl'  + p.id, -4]
-        ]
+	parameters: vmemParameters,
+	ctrl2data: vmemCtrl2data,
+	data: vmemData
     },
     ka_decode: {
 	ctrl2data: p => [

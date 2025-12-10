@@ -29,8 +29,8 @@
    reg                 i1_valid_nxt;
    reg [11:0]          i1_addr_nxt;
    wire                re_0;
-   
-   
+
+
    dpram
      #(.MEMINIT(MEMINIT),.DEPTH(DEPTH))
    dpram_inst
@@ -46,12 +46,12 @@
       .dout_1(i1_data_nxt)
       );
 
-   
-   
+
+
    assign t0_ready=~i0_valid|i0_ready;
    assign t1_ready=~i1_valid|i1_ready;
    assign re_0 = (~t0_we && t0_valid)&t0_ready;
-   
+
    always @(posedge clk) begin
       i0_valid <= (~t0_we && t0_valid)|~t0_ready;
       i1_valid_nxt <= (~t1_we && t1_valid)|~t1_ready;
@@ -78,8 +78,8 @@ module dpram
     input             we_1,
     output reg [31:0] dout_1
     );
-   
-   
+
+
    reg [31:0]         mem [DEPTH-1:0] /* synthesis syn_ramstyle = block_ram */ ;
 `ifdef LOAD_VMEM
    initial       $readmemh(MEMINIT,mem);
@@ -94,7 +94,7 @@ module dpram
       end
    endfunction
 `endif
-   
+
    always @(posedge clk) begin
       if(re_0)
         dout_0<= mem[addr_0];

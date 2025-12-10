@@ -93,6 +93,6 @@ always @*
     endcase
 
    assign i_0_dat = {negative_flag,pre_sat,round_flag,t_0_dat_sign,shift_data};
-   
-   
+
+
 endmodule

@@ -59,7 +59,7 @@ $(Q_ENGINE_REPO)/piston/hdl/operm_dat_2_1.v \
 $(Q_ENGINE_REPO)/piston/hdl/oumux_ctrl_2_5.v \
 $(Q_ENGINE_REPO)/piston/hdl/oumux_dat_2_5.v \
 $(Q_ENGINE_REPO)/piston/hdl/permutator_slice.v \
-$(Q_ENGINE_REPO)/piston/hdl/piston.v \
+$(PISTON_NETLIST) \
 $(Q_ENGINE_REPO)/piston/hdl/vector_ctrl_17_2.v \
 $(Q_ENGINE_REPO)/piston/hdl/vector_dat_17_2.v \
 $(Q_ENGINE_REPO)/piston/hdl/vector_slice.v \
@@ -81,10 +81,12 @@ $(DATAPATH_REPO)/rtl/muladdsub.v
 
 # Compile-time datapath selection (doc/kernel/README.md):
 #   HIGGS_DATAPATH=fft  (default) original 16I/16Q complex FFT datapath
-#   HIGGS_DATAPATH=img  image kernel datapath (libs/datapath/image); the build
-#                       also defines HIGGS_IMG_DATAPATH (see tb_common.mk)
+#   HIGGS_DATAPATH=img  image kernel datapath (libs/datapath/image)
+# piston/bin/gen.js (make -C piston build) writes one netlist per datapath,
+# both defining module piston: hdl/piston.v and hdl/piston_img.v.
 # Lazy so a test Makefile may set HIGGS_DATAPATH before or after the include.
 HIGGS_DATAPATH ?= fft
+PISTON_NETLIST = $(Q_ENGINE_REPO)/piston/hdl/$(if $(filter img,$(HIGGS_DATAPATH)),piston_img.v,piston.v)
 Q_ENGINE_ALL_VERILOG += $(if $(filter img,$(HIGGS_DATAPATH)),$(DATAPATH_REPO)/image/rtl/img_datapath.v)
 
 

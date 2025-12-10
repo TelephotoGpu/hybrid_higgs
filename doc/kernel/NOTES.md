@@ -64,10 +64,17 @@ the code or update this file in the same commit.
   * vreg `ADD` is field-split: the 12-bit baddr and the 4-bit perm are added
     separately, with no carry from baddr into perm (`test_slice_0`,
     "add overflow test").
-* The generator does **not** reproduce the committed `piston.v` any more
-  (reqack drift: regenerating shrinks it by ~4k lines). The Xilinx port
-  already hand-edits `piston.v` (the `vmem_dat_6_5_1_1` ifdef), so the image
-  integration also uses small, guarded hand edits. It does not regenerate.
+* `piston/hdl/*` is generated (`make -C libs/q-engine/piston build`); do not
+  hand-edit it. reqack is pinned to exactly `1.3.1` in both
+  `piston/package.json` and `datapath/package.json`: with it the generator
+  reproduces the committed `piston.v` (ignoring trailing whitespace), while
+  later reqack versions change the netlist substantially (about 4k lines
+  shorter). Earlier hand edits in `hdl/` were moved into the generator:
+  * the `HIGGS_FPGA_XILINX` `vmem_dat_6_5_1_1` ifdef (`vmemData` in
+    `piston/lib/macros.js`);
+  * the `DEPTH` parameter in `memory_slice.v`/`vmem_dat_6_5.v` (templates);
+  * the muladdsub `cfg_valid_N`/`addsub_detect` logic
+    (`datapath/lib/datapath-macros.js`).
 
 ## 2. Task 1 — kernel operations (grill Q1–Q3, Q5)
 
@@ -417,6 +424,46 @@ test Makefiles have no dependencies.
   * `gen-stream IN EXP`, `compare EXP GOT`: the stream files for
     test_image_1 and the job-by-job diff report.
 
+### 8.1 Simple numpy model (prototyping)
+
+`libs/datapath/image/simple_model.py` is a second model, written
+independently of `img_model.py` for readability. Use it to try new kernels
+and to check Verilog output.
+
+* Setup: numpy in a venv, so the test Makefiles keep needing only python3:
+  `python3 -m venv libs/datapath/image/.venv &&
+  libs/datapath/image/.venv/bin/pip install -r libs/datapath/image/requirements.txt`
+  (`.venv/` is gitignored).
+* Images are `uint8` arrays, `(H, W)` for gray or `(H, W, 3)` for RGB.
+  Each op is whole-image numpy:
+  * `correlate`: `np.pad` (ZERO/REPLICATE), then the sum of `k[i,j]` times
+    the shifted image, in int64 with a 24-bit wrap;
+  * `requant`: round, arithmetic shift, offset, clip to u8;
+  * optional `threshold`.
+* Building blocks (one datapath stage each):
+  * `mac(img, ka, kb, comb, shift, rnd, offset, border, thr)`: any s8
+    kernel, the same knobs as the k14 config, and the same maths as the C
+    API's `IMG_OP_CUSTOM`;
+  * `minmax(img, n, 'min'|'max')`: erode/dilate;
+  * `peaks(img, thr)`: 3x3 NMS;
+  * `stats(img, roi_thr)`: the feature trailer body (§3).
+* `OPS`: every stream op as one line built from those blocks.
+  `run_stream(words)` turns an input stream into the expected output
+  stream, including error jobs and END.
+* CLI (run with `.venv/bin/python`):
+  * `selftest` (about 7 s): every op, both borders, gray (with junk in the
+    unused bytes) and RGB, scene and noise images, and several thresholds,
+    compared bit-exactly with `img_model.run_stage` / `stats_trailer`. It
+    also checks random 5x5 custom kernels with all four combine modes, the
+    24-bit wrap, and the whole test_image_1 stream. A mutation check
+    (breaking GAUSS3 rounding) fails as expected.
+  * `run IN.hex OUT.hex`: the expected stream. For test_image_1's `in.hex`
+    it is byte-identical to `img_model`'s `exp.hex`.
+  * `check IN.hex GOT.hex`: model vs Verilog. It passes on test_image_1's
+    Verilator `got.hex` and XSIM `xsim_got.hex` (all 24 jobs).
+  * `filter OP IN.pgm|ppm OUT.pgm|ppm [--border] [--thr]`: runs one op on a
+    real 8-bit netpbm image and prints the max/min/nonzero stats.
+
 ## 9. RTL, integration and synthesis (task 5)
 
 * `libs/datapath/image/rtl/img_datapath.v`: a single module with the
@@ -428,16 +475,33 @@ test Makefiles have no dependencies.
   a C++ TB that replays `img_model.py gen-unit` vectors (240 random
   sequences plus directed edge cases) with 0 %, 30 % and 70 % random
   backpressure/bubbles. It is bit-exact against the model on every row.
-* Piston integration (`libs/q-engine/piston/hdl/piston.v`): under
-  `` `ifdef HIGGS_IMG_DATAPATH `` the FFT datapath instance is replaced by
-  `img_datapath`, which is wired to the same `dat38/39/40` inputs,
-  `dat42_nxt` output and `req/ack` handshakes. `` `else `` keeps the
-  original code, byte for byte.
+* Piston integration is generated, not hand-edited. `piston/bin/gen.js`
+  builds the piston graph twice and writes two netlists, both defining
+  `module piston`:
+  * `hdl/piston.v`: FFT datapath (`libs/datapath/lib/datapath.js`);
+  * `hdl/piston_img.v`: one `img_datapath` node
+    (`libs/datapath/lib/img-datapath.js`, builder + fhyper macro) on the same
+    k8/k9/k14 targets and k1 initiator (`dat38/39/40`, `dat42_nxt`,
+    `req/ack38_0..40_0`, `req/ack42`). It is about 3.3k lines instead of
+    14.4k, because the FFT datapath is gone.
+  * The rest of the graph is shared, so the VMEM node index (and
+    `c/vmem_node.h`) is identical; `gen.js` checks this.
+  * `make -C libs/q-engine/piston lint` lints both (`verilate_lint`,
+    `verilate_lint_img`).
 * Selection knob `HIGGS_DATAPATH=img`:
-  * `verilog_paths.mk` adds `img_datapath.v` to `Q_ENGINE_ALL_VERILOG`;
-  * `tb_common.mk` adds `+define+HIGGS_IMG_DATAPATH=1` (Verilator and XSIM);
+  * `verilog_paths.mk` sets `PISTON_NETLIST` to `piston_img.v` and adds
+    `img_datapath.v` to `Q_ENGINE_ALL_VERILOG`;
+  * `xsim_common.mk` uses `PISTON_NETLIST` for its reg-init patched copy;
   * the CS12 Vivado scripts (`build.tcl`/`implement.tcl`) read the same
-    environment variable, add the file and define, and write to `out_img/`.
+    environment variable, swap `piston.v` for `piston_img.v` in `prj_src`,
+    add `img_datapath.v`, and write to `out_img/`.
+  * No Verilog define is involved.
+* Checks for the generator change: regenerated `hdl/piston.v` equals the
+  pre-image `piston.v` (ignoring trailing whitespace), and the other `hdl/`
+  files differ only in whitespace. Both lint targets are clean. After a clean
+  rebuild, test_image_1 passes on Verilator and XSIM (outputs identical) and
+  test_fft_lib_1 still passes. A mocked `prj_src` run confirms that Vivado
+  gets `piston_img.v` only when `HIGGS_DATAPATH=img`.
 * Vivado 2025.2, CS12 (xczu-class part), `sys_clk` 125 MHz:
 
   | | FFT datapath (baseline) | image datapath |

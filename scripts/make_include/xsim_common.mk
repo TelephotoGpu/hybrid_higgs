@@ -147,7 +147,7 @@ Q_ENGINE_REG_INIT_SOURCES=\
 	$(Q_ENGINE_REPO)/piston/hdl/perm_full_addr_dat_1_1.v \
 	$(Q_ENGINE_REPO)/piston/hdl/perm_full_data_dat_2_1.v \
 	$(Q_ENGINE_REPO)/piston/hdl/permutator_slice.v \
-	$(Q_ENGINE_REPO)/piston/hdl/piston.v \
+	$(PISTON_NETLIST) \
 	$(Q_ENGINE_REPO)/piston/hdl/round_sat_dat_1_1.v \
 	$(Q_ENGINE_REPO)/piston/hdl/vector_ctrl_17_2.v \
 	$(Q_ENGINE_REPO)/piston/hdl/vector_dat_17_2.v \

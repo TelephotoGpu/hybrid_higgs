@@ -3,9 +3,9 @@ module p_decode_ctrl_1_2 (
     input 	t_kp_req,
     output wire t_kp_ack,
     output wire	i_p_sk_req,
-    input wire  i_p_sk_ack, 
+    input wire  i_p_sk_ack,
     output wire	i_p_lk_req,
-    input wire  i_p_lk_ack, 
+    input wire  i_p_lk_ack,
 
     input wire [3:0] k_ctrl,
     input 	clk, reset_n
@@ -23,6 +23,6 @@ module p_decode_ctrl_1_2 (
      q_p_sk_ack<=(i_p_sk_ack | ~i_p_sk_req) & ~t_kp_ack;
    always @(posedge clk)
      q_p_lk_ack<=(i_p_lk_ack | ~i_p_lk_req) & ~t_kp_ack;
-			 
+
 
 endmodule

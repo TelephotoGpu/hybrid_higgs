@@ -1,6 +1,6 @@
 module inmux_ctrl_4_1
 (
- 
+
  input wire                          t_k1_req,
  output wire                         t_k1_ack,
 
@@ -32,15 +32,15 @@ always @(*)
         1 : begin
            i_0_valid_temp = t_k1_req;
            invalid_op = 0;
-        end 
+        end
         5 : begin
            i_0_valid_temp = t_k13_req;
            invalid_op = 0;
-        end 
+        end
         7 : begin
            i_0_valid_temp = t_k15_req;
            invalid_op = 0;
-        end 
+        end
         default: begin
           i_0_valid_temp = 1'b0;
           invalid_op= 1;

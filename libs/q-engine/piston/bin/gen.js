@@ -12,7 +12,8 @@ const k15_op = require('../lib/k15_op');
 const piston = require('../lib/piston');
 const macros = require('../lib/macros');
 const macrosDatapath = require('../../../datapath/lib/datapath-macros');
-const allMacros = Object.assign({}, macros, macrosDatapath);
+const imgDatapath = require('../../../datapath/lib/img-datapath');
+const allMacros = Object.assign({}, macros, macrosDatapath, imgDatapath.macros);
 
 const constants = require('../lib/constants');
 //console.log(constants);
@@ -102,20 +103,31 @@ Object.keys(allTemplates).forEach(fileName => {
     });
 });
 
-// elastic piston
-const g = fhyper('piston');
-piston(g)();
+// elastic piston, one netlist per datapath. Both define module piston;
+// the build picks one with HIGGS_DATAPATH (q-engine verilog_paths.mk).
+const variants = [
+    {name: 'piston', dpGen: undefined},        // FFT datapath (default)
+    {name: 'piston_img', dpGen: imgDatapath}  // image kernel datapath
+];
 let vmemH;
-g.nodes.map((n,ni) => {
-    if(n.label === 'vmem') {
-	vmemH = '#define UNODE_NAME ' + ni + '\n' + '#define VMEM_INPUTS ' + fineGrain['vmem_dat.v'][0][0] + '\n' + '#define VMEM_OUTPUTS ' + fineGrain['vmem_dat.v'][0][1] + '\n';
-    }
+variants.forEach(v => {
+    const g = fhyper('piston');
+    piston(g, v.dpGen)();
+    g.nodes.map((n,ni) => {
+        if(n.label === 'vmem') {
+            const h = '#define UNODE_NAME ' + ni + '\n' + '#define VMEM_INPUTS ' + fineGrain['vmem_dat.v'][0][0] + '\n' + '#define VMEM_OUTPUTS ' + fineGrain['vmem_dat.v'][0][1] + '\n';
+            // c/vmem_node.h is shared by every variant
+            if (vmemH !== undefined && vmemH !== h) {
+                throw new Error(v.name + ': vmem node index differs from piston.v');
+            }
+            vmemH = h;
+        }
+    });
+    fs.outputFile('hdl/' + v.name + '.dot', fhyperDot(g), () => {
+        fs.outputFile('hdl/' + v.name + '.v', withoutTrailingWhitespace(fhyperV(g, allMacros)), () => {});
+    });
 });
 fs.outputFile('c/vmem_node.h',vmemH, () => {});
-
-fs.outputFile('hdl/piston.dot', fhyperDot(g), () => {
-    fs.outputFile('hdl/piston.v', withoutTrailingWhitespace(fhyperV(g, allMacros)), () => {});
-});
 
 const k15 = fhyper('k15_op');
 k15_op(k15)();

@@ -180,8 +180,8 @@ module vector_slice #(
    wire [23:0] 	   i_k15_op_dat;
    wire 	   i_k15_op_valid;
    wire 	   i_k15_op_ready;
-   
-   
+
+
    //----------------- BEGIN LOGIC --------
 
    assign predicate    = !(s_xrs[PREDICATOR] & !(s_funct == MV_X_V));
@@ -189,7 +189,7 @@ module vector_slice #(
    assign t1              = (s_funct == MV_V_K15) ? i_k15_ready : 1'b1;
    assign t2              = (s_funct == MV_K15_V) ? t_k15_valid  : 1'b1;
    //   assign t3              = (s_kscratch == 4'h7 ) ? (k15_valid & i_k15_ready) |k15_latched: 1'b1;
-   
+
    assign t_instr_ready        = t_instr_valid? t1 & t2 & (i0_ready | i0_latched):1'b1;
    assign i0_valid = t_instr_valid & (s_kscratch!=0) & ~i0_latched;
 
@@ -198,9 +198,9 @@ module vector_slice #(
        i0_latched<=0;
      else if(i0_valid&i0_ready)
        i0_latched<=1;
-   
 
-   always @(posedge clk) 
+
+   always @(posedge clk)
      if(t_instr_ready) begin
 	k15_latched<=0;
      end
@@ -208,7 +208,7 @@ module vector_slice #(
 	k15_latched<=1;
 
      end
-   
+
    always @(posedge clk) 	k15_data<=t_k15_data;
 
    assign i0_data         = src1_value;
@@ -244,15 +244,15 @@ module vector_slice #(
       end
    end
 
-   
 
-   
+
+
    assign i_k15_data = src2_reg;
    assign i_k15_valid = (funct_reg==MV_V_K15 & ~k15_latched);
-   
+
    assign t_k15_ready = (funct_reg==MV_K15_V);
-   
-   
+
+
    //Pipeline registers
    always @(posedge clk) begin
       src2_reg     <= src2_value;

@@ -19,7 +19,7 @@ module inmux_dat_4_1 (
 
 // data
 always @(*)
-    case(t_c_dat) 
+    case(t_c_dat)
         1 :     i_inmux_dat = t_k1_dat;
         5 :     i_inmux_dat = t_k13_dat;
         7 :     i_inmux_dat = t_k15_dat;

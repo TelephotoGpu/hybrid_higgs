@@ -29,6 +29,12 @@ proc prj_src {command path} {
         return
     }
 
+    # HIGGS_DATAPATH=img: the generated image-datapath netlist replaces piston.v
+    global higgs_datapath
+    if {$higgs_datapath eq "img" && [string match "*/q-engine/piston/hdl/piston.v" $path]} {
+        set path [file join [file dirname $path] piston_img.v]
+    }
+
     add_files -norecurse $path
     if {[file extension $path] eq ".v"} {
         set_property file_type SystemVerilog [get_files $path]
@@ -56,7 +62,6 @@ add_files -norecurse $source_root/libs/spinal/hw/gen/VmemDatArbOut1_1.v
 set higgs_defines {HIGGS_FPGA_XILINX MEMORY_SLICE_1_1 VMEM_DAT_ARB_OUT_1_1}
 if {$higgs_datapath eq "img"} {
     add_files -norecurse $source_root/libs/datapath/image/rtl/img_datapath.v
-    lappend higgs_defines HIGGS_IMG_DATAPATH
 }
 
 set_property include_dirs [list \

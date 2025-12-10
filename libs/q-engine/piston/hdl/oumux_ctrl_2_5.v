@@ -1,6 +1,6 @@
 module oumux_ctrl_2_5
 (
- 
+
  output wire                         i_k8_req,
  input wire                          i_k8_ack,
 
@@ -47,27 +47,27 @@ always @(*)
            i_ready = i_k8_ack;
            invalid_op = 0;
         end
-        
+
         9 : begin
            i_ready = i_k9_ack;
            invalid_op = 0;
         end
-        
+
         13 : begin
            i_ready = i_k13_ack;
            invalid_op = 0;
         end
-        
+
         14 : begin
            i_ready = i_k14_ack;
            invalid_op = 0;
         end
-        
+
         15 : begin
            i_ready = i_k15_ack;
            invalid_op = 0;
         end
-        
+
     default: begin
        i_ready = 1'b0;
        invalid_op= 1;

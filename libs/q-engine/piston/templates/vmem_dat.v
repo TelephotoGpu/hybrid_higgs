@@ -272,7 +272,7 @@
 
    <% range(slices).map(e => { %>
 memory_slice
-#(.MEMINIT(VMEM<%= e %>))
+#(.MEMINIT(VMEM<%= e %>),.DEPTH(VMEM_SIZE))
 mem_slice_<%= e %>
 (.clk(clk),
  .reset_n(reset_n),
