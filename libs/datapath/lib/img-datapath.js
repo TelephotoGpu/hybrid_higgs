@@ -3,7 +3,9 @@
 // Image kernel datapath (libs/datapath/image/rtl/img_datapath.v,
 // doc/kernel/NOTES.md) as a single fhyper node. Drop-in replacement for
 // datapath.js: takes the same k8/k9/k14 targets and returns the k1 initiator.
-// piston/bin/gen.js uses it to write hdl/piston_img.v.
+// piston/bin/gen.js uses it to write the reqack equivalence references
+// build/ref/piston_img.v and build/ref/piston_dp_img.v; the netlists in hdl/
+// come from SpinalHDL (libs/spinal qengine/PistonDp.scala).
 
 module.exports = function (g, params) {
     params = params || {};

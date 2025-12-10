@@ -1,6 +1,6 @@
 ROOT := $(abspath ../../../../..)
 PISTON_DIR := $(ROOT)/libs/q-engine/piston/hdl
-PISTON_RTL := $(filter-out $(PISTON_DIR)/memory_slice.v $(PISTON_DIR)/vmem_dat_6_5.v,$(wildcard $(PISTON_DIR)/*.v))
+PISTON_RTL := $(filter-out $(PISTON_DIR)/memory_slice.v $(PISTON_DIR)/vmem_dat_6_5.v $(PISTON_DIR)/piston_dp_img.v,$(wildcard $(PISTON_DIR)/*.v))
 MULADDSUB := $(ROOT)/libs/datapath/rtl/muladdsub.v
 EB := $(ROOT)/libs/d-engine/rtl/elastic-buffer/eb15.sv
 ARB := $(ROOT)/libs/spinal/hw/gen/VmemDatArbOut1_1.v

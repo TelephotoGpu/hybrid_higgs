@@ -603,4 +603,4 @@ LOCATE COMP "LS_WEST_IN[0]" SITE "U4"; # IL68_20.TB.G13.D6
 # LOCATE COMP "None" SITE "F10"; # IL34_CFG.DDR.G0.D1_P
 # LOCATE COMP "None" SITE "E16"; # IL34_CFG.DDR.G0.D2_P
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;

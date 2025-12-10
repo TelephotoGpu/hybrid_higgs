@@ -21,8 +21,9 @@ the code or update this file in the same commit.
 ## 1. How the existing datapath is built (study)
 
 * A Q-engine = VexRiscv + *piston* (vector unit + VMEM + datapath).
-  `libs/q-engine/piston/hdl/piston.v` is produced by the reqack/fhyper
-  generator (`piston/bin/gen.js`, `piston/lib/piston.js`). The datapath graph
+  `libs/q-engine/piston/hdl/piston.v` was produced by the reqack/fhyper
+  generator (`piston/bin/gen.js`, `piston/lib/piston.js`); since M8 it comes
+  from SpinalHDL with the same graph (§11). The datapath graph
   itself comes from `libs/datapath/lib/datapath.js`
   (`funnel → cmul(muladdsub) → radix4 → bs → round_sat → defunnel`).
 * Datapath interface (`dpTargets`/`dpInitiators` in `piston.js`):
@@ -475,6 +476,8 @@ and to check Verilog output.
   a C++ TB that replays `img_model.py gen-unit` vectors (240 random
   sequences plus directed edge cases) with 0 %, 30 % and 70 % random
   backpressure/bubbles. It is bit-exact against the model on every row.
+* (M6 state; since M8c the netlists are `piston.v` + `piston_dp_{fft,img}.v`
+  from SpinalHDL and `hdl/piston_img.v` is gone, §11.4.)
 * Piston integration is generated, not hand-edited. `piston/bin/gen.js`
   builds the piston graph twice and writes two netlists, both defining
   `module piston`:
@@ -577,3 +580,370 @@ out, trailer.
    arrives for 500 k cycles, the TB prints the cs22 PC and the fence row and
    writes a 20-cycle `stall.vcd`. Verilator inlines most piston signals, so
    the VCD is the practical way to inspect the inmux/oumux req/ack state.
+
+## 11. SpinalHDL replacement for reqack (M8)
+
+Goal: generate the elastic netlists (`k15_op.v`, `piston.v`, the datapath)
+with SpinalHDL instead of reqack's `fhyper-verilog`. Instance and signal
+names are explicit and stable, so saved testbench and waveform paths stop
+depending on reqack's node numbering (`unode28`). Leaf modules (templated
+`*_dat_*` / `*_ctrl_*` from `gen.js`, `muladdsub`, `img_datapath`) are
+BlackBoxes for now; porting them to Spinal is a later phase.
+
+### 11.1 Layout
+* `libs/spinal/hw/spinal/reqack/`
+  * `Graph.scala`: fhyper-like DSL. `g(kind, name)` makes a node,
+    `node(ESpec(width, capacity), taillabel)` an output edge, and
+    `edge(node, headlabel)` connects a target (chainable). Creation order is
+    kept, as in reqack, because per-node input/output order sets
+    concat/deconcat/m2c bit and port order.
+  * `Buffers.scala`: exact ports of reqack's EB1, EB1.5 (`eb15_ctrl`),
+    EB1.7 (`eb17_ctrl`) and FIFO (`eb_fifo_ctrl`, capacity ≥ 2).
+  * `Netlist.scala`: elaborates a graph into one flat module: IO ports,
+    edges, buffers, edge forks, join and node-fork controllers, and the
+    add/sub/concat operators.
+  * `Macros.scala`: the standard macro (data module plus a ctrl module or an
+    inline controller, reqack's rule), pass-through leaves (`img_datapath`,
+    `piston_dp`), deconcat, slice16, m2c, bs and muladdsub.
+  * `VerilogHeader.scala`: a strict ANSI header parser. BlackBox ports come
+    from the leaf `.v` files, so a template change cannot silently mis-wire.
+* `libs/spinal/hw/spinal/qengine/K15Op.scala`: the k15_op graph.
+* `libs/spinal/hw/spinal/qengine/Piston.scala`: the piston graph and the
+  `PistonVerilog` main (§11.4).
+* `libs/spinal/hw/spinal/qengine/PistonDp.scala`: the FFT and image
+  datapath graphs (`cmul`, `radix4`, `fft` as in `datapath.js`,
+  `img-datapath.js`).
+* `libs/spinal/equiv/equiv.py`: the equivalence harness (§11.3).
+* `libs/spinal/scripts/direct-run.sh`: runs a generator with scalac from the
+  coursier cache when sbt cannot start (§11.6).
+* `libs/spinal/names/`: `names.py` + `names.lock` (name lock) and `map.py`
+  (reqack → Spinal name map), §11.5.
+
+### 11.2 Naming
+Edge `<e>`: `<e>` (buffered data), `<e>_nxt` (source data, buffered edges
+only), `<e>_req`/`<e>_ack` (source side), `<e>_m_req`/`<e>_m_ack` (after
+the buffer), `<e>_to_<target>_req/ack` (per target, after the fork) and
+`<e>_eb_*` (buffer state). The default edge name is
+`<source>_<taillabel|output index>`. A source is `t_<label>` for a target
+port, `i_<label>` for an initiator port and the node name otherwise. Leaf
+instances are named after their node: the data module is `<node>` and the
+ctrl module `<node>_ctrl`. Extra data↔ctrl signals (`sel`, `mode`,
+`k_ctrl`, …) connect the two instances' pins directly and appear as
+`<node>_<port>`. Node names must be unique and differ from their leaf
+module name (Verilog allows `img_datapath img_datapath (`, but Spinal
+renames the instance `img_datapath_1`; the image node is `img`). Everything
+in the generated files is covered by the name lock (§11.5).
+
+Differences from reqack (intentional):
+* One flat module per graph, with no `<graph>_ctrl` submodule.
+* Unknown capacities (reqack typos such as `cpacity`) are rejected, not
+  silently turned into EB0. The ports keep the old EB0 behaviour.
+* An unbound leaf input is an error, and so is a custom-controller input
+  that is not target 0 of its edge. reqack binds `req<e>_0` there, which is
+  a latent miswire.
+
+### 11.3 Equivalence
+`gen.js` still runs reqack and writes the reference netlists to
+`libs/q-engine/piston/build/ref/` (gitignored). `equiv.py` renames every
+module in the reference with a `_ref` suffix and instantiates both copies in
+`equiv_top` with shared inputs and the leaf modules shared. The C++ bench
+does 8 seeds × 20 k cycles. Each seed biases every 1-bit input with its own
+probability, randomises the data every cycle and adds random resets. Every
+output is compared on both clock edges. A one-state mutation in an EB1.5 is
+caught at cycle 29.
+
+* `make -C libs/q-engine/piston build SPINAL_RUNNER=direct` regenerates
+  everything (templates, reqack references, Spinal netlists).
+* `make -C libs/q-engine/piston equiv SPINAL_RUNNER=direct` runs the
+  checks.
+
+Harness options (added for piston): `--stim PORT=<C++ expr>` overrides the
+random value of an input; `--prelude FILE` includes C++ helpers for those
+expressions; `fire_<port>` flags (handshake completed in the previous cycle)
+let a stimulus model advance on accepted beats; `--reset-rate` sets the reset
+probability. A mismatch prints the differing 32-bit words.
+
+Uniform random input words almost never form a useful piston program, so the
+full-piston checks use `equiv/piston_stim.h`: a program model that emits
+KNOP, LK14 → 1–4 × (LK8, LK9 in random order) → SK1, LK13 → SK13, and random
+vector ops (mostly MVXV with small `rs1` so that LK/SK addresses fall in the
+vmem words the DMA stimulus writes). The make targets pass it through
+`PISTON_STIM` (`libs/spinal/Makefile`).
+
+Results (`make -C libs/spinal equiv SPINAL_RUNNER=direct`):
+
+| check | ref | result |
+|-------|-----|--------|
+| `equiv_k15_op` | `k15_op.v` | PASS |
+| `equiv_piston_dp_fft` | `piston_dp_fft.v` (dp only, §11.4) | PASS |
+| `equiv_piston_dp_img` | `piston_dp_img.v` | PASS |
+| `equiv_piston_fft` | flat reqack `piston.v` | PASS |
+| `equiv_piston_img` | flat reqack `piston_img.v` | PASS |
+
+test_image_1 passes with the Spinal `k15_op.v`.
+
+Mutation checks (each must fail):
+* EB1.5 one-state mutation in `k15_op`: caught at cycle 29.
+* re/im swapped at the first radix-4 input of `piston_dp_fft`: caught at
+  cycle 251 (`i_k1_dat` word 12).
+* k8/k9 swapped on the `dp` instance in `piston.v`: caught (seed 2,
+  `t_instr_ack`). With uniform stimulus alone it was **not** caught; that
+  gap is why `piston_stim.h` exists.
+* one bit flipped on `dp → inmux` k1 in `piston.v`: caught for both
+  datapaths (seed 2, `i_odma_*_dat`).
+
+Coverage of the full-piston run is modest: tens of accepted instructions
+per 20 k cycles, because the image datapath only returns k1 after a beat
+whose k9 flags have LAST set, and random memory rarely has it. The dp-level
+checks cover the datapath graphs directly; the platform tests (M8c) cover
+real programs.
+
+Bug found by the checks: Spinal's `Cat(seq)` already puts the first element
+at the LSB. `Cat(args.reverse)` in the concat operator reversed every concat
+node; it is now `Cat(args)`.
+
+### 11.4 piston split
+reqack emitted `piston.v` (and `piston_img.v`) as one flat module with the
+datapath graph merged in. The Spinal version splits it:
+* `piston_dp_fft.v` and `piston_dp_img.v` both define `module piston_dp`
+  with the same ports (k8, k9, k14 in; k1 out). `PistonVerilog` checks the
+  two headers match.
+* `piston.v` instantiates `piston_dp` as the pass-through node `dp`. The
+  datapath is then selected by which `piston_dp_*.v` file is compiled, and
+  `piston.v` is shared.
+* `gen.js` also writes dp-only reqack references
+  (`build/ref/piston_dp_{fft,img}.v`) so each datapath graph is checked on
+  its own, not only through the piston.
+
+`PistonVerilog` post-patches `piston.v`:
+* the top parameters become `VMEM_SIZE` and `VMEM0..31` (reqack called them
+  `NODE28_*`; `q_engine.v` passes the new names, `piston_test_top.sv` uses
+  the defaults);
+* the vmem data module is `vmem_dat_6_5_1_1` under `HIGGS_FPGA_XILINX` and
+  `vmem_dat_6_5` otherwise, as in `gen.js`.
+
+Build integration (M8c):
+* `make -C libs/q-engine/piston build` runs `gen.js` (templates, reqack
+  references and `.dot` graphs in `build/ref/`, `c/vmem_node.h`) and then
+  `make -C libs/spinal reqack`, which writes `hdl/k15_op.v`, `hdl/piston.v`,
+  `hdl/piston_dp_fft.v` and `hdl/piston_dp_img.v`. Nothing in `hdl/` comes
+  from reqack any more.
+* The piston Makefile targets are `.PHONY` (M8d): the `build/` directory
+  otherwise made `make build` and `make lint` skip generation. `make lint`
+  starts with `clean` (`rm -f hdl/*`), which also deletes the checked-in
+  `piston.svg`, `vmem_dat_6_5_1_1.v` and
+  `vmem_dat_arb_out_spinal_wrapper.v`; restore them with `git checkout`.
+* `verilog_paths.mk`: `PISTON_NETLIST = piston.v piston_dp_<fft|img>.v`
+  (`HIGGS_DATAPATH`); `xsim_common.mk` picks it up unchanged.
+* Vivado/Diamond: `diamond_sources.tcl` lists `piston.v` and
+  `piston_dp_fft.v`; the CS12 `build.tcl` swaps `piston_dp_fft.v` for
+  `piston_dp_img.v` when `HIGGS_DATAPATH=img`. The Xilinx sim Makefiles
+  (`fpgas/common/xilinx/sim/{q_engine,vex_machine_top}`) list
+  `piston_dp_fft.v`; `sim/piston` globs `hdl/*.v` and now filters out
+  `piston_dp_img.v` (it also picked up both `piston.v` and `piston_img.v`
+  after M6, a duplicate `module piston`).
+* The vmem data instance is `vmem` (was `unode28`): `c/vmem_node.h` and
+  `sim/verilator/inc/piston_c_types.h` define `UNODE_NAME vmem`, and the
+  direct references in `test_xbb/tb.cpp`, `test_dma_slicer/tb.cpp` and
+  `test_fill_lib/tb_higgs_top_xsim.sv` use `vmem`. Saved `.gtkw`/`.tcl`/
+  `.lpf` paths were migrated in M8d (§11.5).
+
+### 11.5 Name lock and the reqack name map (M8d)
+Saved paths into `piston_inst` (gtkw, higgs.tcl signal lists, Diamond LPF
+`BLOCK NET`/`BLKNAME`, tb.cpp, the C headers) must not break silently when
+the generator changes.
+
+Name lock: `libs/spinal/names/names.py` lists every declared port, wire,
+reg and instance of `piston.v`, `piston_dp_{fft,img}.v` and `k15_op.v`
+(except Spinal temporaries `_zz_*`) and compares it with the committed
+`libs/spinal/names/names.lock` (5514 names). `make reqack` runs
+`make names_check` after generating, so a rename fails the build with a
+`-`/`+` list. It also flags new wire/reg pairs `x` and `x_<n>` (Spinal's
+clash suffix). To accept a rename, run `make names_lock`, migrate the saved
+paths, and commit both.
+
+Clash suffixes fixed while adding the lock:
+* The extra data↔ctrl wires collided with Spinal's BlackBox pin wires and
+  produced about 30 `_1` names (`inmux_sel_1`, `vector_instr_0_ready_1`,
+  `k1_defunnel_mode_1`, …). The extras now link pin to pin
+  (`Leaf.link`, which also checks the widths).
+* The `img_datapath` instance was `img_datapath_1` (node named after its
+  module); the node is now `img`.
+
+The equivalence checks compare ports only and still pass.
+
+reqack → Spinal map: `libs/spinal/names/map.py`.
+* Inputs: `gen.js` dumps the reqack graphs (`build/ref/{piston,piston_img,
+  piston_dp_fft,piston_dp_img}.json`, with the node/edge range the datapath
+  generator created), and `qengine.PistonGraphs` dumps the Spinal graphs
+  (`libs/spinal/build/names/*.json`).
+* The graphs are paired structurally, not by index: Spinal names reqack's
+  anonymous nodes and creates some in another order (`dp` is node 37, the
+  reqack datapath block is nodes 53–222). Seeds are labels unique in both
+  graphs; pairs propagate through each node's ordered input/output edges
+  and each edge's source and ordered targets. At piston level the reqack
+  datapath block is one `piston_dp` node; inside, the reqack dp-only graph
+  is paired with the Spinal dp graph. Every reqack node and edge pairs.
+* Each reqack name is translated with the §11.2 table (`unodeN` → node,
+  `uctrl.unodeN` → `<node>_ctrl`, `datN` → edge, `datN_r0` → `<e>_eb_r0`,
+  `selN` → `<e>_eb_sel`, `reqNm` → `<e>_m_req`, `reqN_k` →
+  `<e>_to_<target>_req`, datapath names → `dp.<name>`) and kept only if it
+  is declared in the Spinal netlist. FFT: 3570 of 4879 names map; the rest
+  are reqack controller internals with no Spinal counterpart
+  (`uctrl_<k>` EB controllers, fork registers, FIFO pointers).
+* Cross-check: for every reqack `unodeM.<port>(datN…)` connection the
+  mapped Spinal instance port reaches the mapped edge (144 connections; the
+  two exceptions are p_decode `i_p_{sk,lk}`, where both netlists
+  zero-extend a 64-bit port onto a 68-bit edge).
+
+```sh
+make -C libs/q-engine/piston build SPINAL_RUNNER=direct   # reqack .json
+libs/spinal/scripts/direct-run.sh qengine.PistonGraphs libs/spinal/build/names
+python3 libs/spinal/names/map.py map fft          # "<reqack> <spinal>"
+python3 libs/spinal/names/map.py migrate fft FILE...
+```
+
+Migration (FFT map, since the saved files predate the image datapath)
+rewrote 419 paths in 47 files, e.g. `unode26` → `vector`,
+`dat29_r0` → `cmd_lane_14_0_eb_r0`, `sel29` → `cmd_lane_14_0_eb_sel`,
+`dat40_r` → `oumux_k14_eb_r`, `dat232` → `dp.s0_r4_c0_im_0`, and the
+flattened Diamond LPF nets `req40`/`req40m` → `oumux_k14_req`/
+`oumux_k14_m_req` (synthesis flattens reqack's `uctrl`, so controller
+names also match at `piston_inst` scope). Line endings are preserved (the
+LPFs are CRLF).
+
+Left as is: paths that the reqack netlist did not have either, i.e. stale
+before M8 (`unode13` ×631 and `unode17` ×129, mostly commented-out LPF
+lines; `unode10`, `instr_0_valid11`, `ivs_valid15`, `ivs_ready15`, `en28`,
+`dat28_r`, `dat26_r`).
+
+### 11.6 sbt on shared machines
+On this host sbt 1.10 cannot start: it always creates an inotify watch
+service and the per-user inotify instance limit is exhausted. The sysctl was
+deliberately not changed on a shared machine. `SPINAL_RUNNER=direct` makes
+the `libs/spinal` Makefile use `scripts/direct-run.sh`, which compiles
+`hw/spinal` with the same Scala 2.13.14, SpinalHDL 1.11.0 and idsl plugin
+jars from the coursier cache (sbt must have filled it once) and runs the
+main class (about 2 s after the first compile).
+
+
+## 12. Reciprocal in the FFT datapath (M9)
+A 1/c unit in each of the 8 cmuls of the Spinal FFT datapath, so that
+`vector_divide_1024()` computes x / Re(y) with the existing
+LK14 → LK8/LK9 → SK1 schedule. The image datapath is unchanged.
+
+### 12.1 Sources studied
+* `libs/d-engine/rtl/reciprocal` (reqack `reciprocal.js`, `hdl/reciprocal.v`):
+  a 3-stage Newton-style reciprocal in Q6.10, Y ≈ 2^20 / X.
+  Two defects (bit-exact model of it, compared over all 16-bit inputs):
+  * |X| in [1, 31] wraps the result to 0 instead of saturating;
+  * negative X is treated as unsigned (a huge X, so Y ≈ 0).
+* The earlier attempt to put it in the FFT datapath (closed_higgs) broke
+  other tests. Three bugs:
+  1. it repurposed m2c **code 2** (constant 1), which the 8
+     `config_word_add_*` rows use on ac/bd/cd/da, so every vector add
+     became a multiply by 1/c;
+  2. one reciprocal queue was shared by several lanes, cross-wiring their
+     results;
+  3. the 16-bit result was zero-extended into the 18-bit lane, so a
+     negative 1/c became a large positive number.
+
+Decoding all 83 k14 config words in the repository: m2c codes 0, 1 and 2
+are used, **code 3 never**. The unit takes code 3.
+
+### 12.2 Design Decisions
+| decision | choice |
+|----------|--------|
+| placement | always in the FFT datapath, one unit per cmul (8); `PistonDp.fft(recip = false)` removes it |
+| select | m2c code 3 on m2c_ac and m2c_cd → 1/c (c = Re(y), low 16 bits of the k9 lane); codes 0–2 and the k14 layout unchanged |
+| numerics | the d-engine algorithm and constants (C1 = 0x5dd ≈ 1.466, C2 = 0x401 ≈ 1.0012, M = 6), with fixes: sign-magnitude, ±32767 for \|X\| < 32 (including 0), 18-bit sign extension |
+| resources | 8 × 2 small multipliers (10×11, 11×11); the FFT build uses 38 of 1,728 DSP48E2 on the xczu7ev |
+
+`libs/spinal/hw/spinal/qengine/Reciprocal.scala`, three `FuncMacro` nodes
+with EB1 edges between them (latency 3):
+* norm: `neg`, `sat = |X| < 32`, `lz` = leading zeros of |X| (16 bit),
+  `xn = (|X| << lz) >> 6` (10 bits, [0.5, 1));
+* mul: `y0 = C1 − xn`, `u = C2 − (xn·y0)[20:10]`;
+* out: `r = (u·y0)[21:10] << 2`, renormalized by `lz` (`>> (6 − lz)` or
+  `<< (lz − 6)`), saturated to 0x7fff, negated if `neg`, sign-extended to 18
+  bits.
+
+In `PistonDp.cmul` the c edge forks to `<cmul>_recip_norm` (its last
+target), and m2c_ac/m2c_cd become `m2c_r` (`M2c(Seq(0, 1, 3))`: inputs
+a|c, c, 1, 1/c) with the recip edge before the cfg edge. An unselected m2c
+input is acked unconditionally, so the unit drains when code 3 is not used.
+New generic reqack pieces: `class M2c(codes)` and `FuncMacro` (a join node
+with a Scala function body), both in `reqack/Macros.scala`.
+
+Accuracy (`recip_model.py`): at most 0.6 % relative error for |X| < 4096;
+up to 3.3 % for large |X|, where 2^20/X has few integer bits. `recip(−32768)
+= −32`.
+
+### 12.3 Using it
+* Config row `config_word_cdiv_eq_05` = `config_word_cmul_eq_0f` with
+  shorts 0–7 = `0x4753` (ac = cd = 3) and bs = 5. Each lane computes
+  (a + jb) · (1/c + jd) >> 5, i.e. Q1.15 · Q6.10 → Q1.15; with d = 0 this is
+  (a + jb) / c. Saturates like any cmul.
+* `vector_divide_1024(x_row, y_row, out_row)` (`vector_divide.{h,c}`, a
+  wrapper of `cfg_vector_multiply_1024`). It is a separate header so that
+  existing users of `vector_multiply.h` do not get an extra VMEM row.
+* Throughput (test_recip_1, 1024 words + fence): divide 593 timer ticks,
+  plain cmul 533 (+11 %). The a/b/d operands wait for the 3-stage 1/c.
+
+### 12.4 Verification
+* Model vs the d-engine netlist behaviour: identical for 32 ≤ X ≤ 32767.
+* `make -C libs/spinal recip_test`: the Spinal unit (`RecipUnitVerilog`,
+  `libs/spinal/recip/tb_recip.cpp`, random req/ack) against the model for
+  all 65,536 inputs: PASS. Mutation: C1 off by one fails; `|X| < 32` →
+  `< 16` is equivalent (the 18-bit `rn` saturates anyway).
+* Names: 432 new names, 0 removed (`names.lock` updated); the 99 k14 cfg
+  fields decode identically.
+* Regeneration: `make -B -C libs/spinal piston` reproduces the committed
+  `hdl/` byte for byte.
+* test_recip_1 (see its README): bit-exact, 0 mismatches in 2 × 1024 words
+  including special divisors and d ≠ 0. An exact `round(2^20/c)` model
+  gives 89 mismatches, so the test sees LSB differences.
+
+### 12.5 Equivalence with the reqack FFT datapath
+The reference has no reciprocal, so code 3 legitimately differs (an
+unconstrained `equiv_piston_dp_fft` fails at cycle 21). `equiv.py` got two
+options:
+* `--fixup STMT`: C++ run after the inputs are set each cycle. For
+  `piston_dp_fft`, `norecip_k14(m->t_k14_dat)` (`equiv/norecip.h`) remaps
+  code 3 of every m2c_ac/m2c_cd field to a random 0–2. `piston_stim.h`
+  applies the same to the DMA data.
+* `--stop EXPR`: ends a seed early (not a failure) after the first cycle
+  where EXPR is true. In the full piston, SK1 results written to vmem can
+  later be loaded by LK14 with code 3, which no input constraint prevents.
+  `norecip_piston_code3(m)` (needs `--vflags=--public`; `dut(m)` reaches the
+  DUT instance) stops when such a k14 enters the DUT datapath.
+  `equiv_piston_fft` runs 16 seeds.
+
+Result: all 5 checks PASS. `piston_fft`: 292,864 cycles compared, seeds 6
+and 12 stopped at cycles 7,767 and 5,097. Seed 6 used to fail at cycle
+8,573 (`t_instr_ack`); a probe showed the first code-3 k14 accepted at
+cycle 7,766, and the pre-reciprocal dp passes all 8 seeds with the same
+stimulus, so the difference is the reciprocal itself.
+
+### 12.6 Regression
+`/home/ubuntu/work/recip_regress/run.sh` (outside the repo) runs `TEST_LIST`
+(32), `RANDOMIZED_TESTS` (12) and test_image_1, test_cmul, test_fft_2,
+test_dengine_1 in 4 git worktrees (tests write into the shared
+`fpgas/cs/*/c/build`, so parallel runs need separate trees).
+
+Baseline (`ed43299`, before M9): 48 tests, 39 PASS, 9 FAIL. The failures
+are pre-existing and unrelated to the datapath:
+* test_mapper_lib, test_mover_lib: Python 2 syntax in the post-check;
+* test_cmul: needs cs30, which no longer exists;
+* test_dengine_1: `DUPLEX_FRAMES` undeclared in its firmware;
+* test_issue_112, test_issue_112_b, test_fork_1: tb C++ cannot find
+  `schifra_galois_field.hpp` (the `libs/s-modem/soapy/src/3rd/schifra` submodule is not
+  initialized);
+* test_ring_3: `TEST_SELECT=8` is an invalid test in its tb;
+* test_fft_2: segfaults after the ring returns 0 items.
+
+After (`47aa34a`, M9; test_recip_1 now in `TEST_LIST`): 49 tests, 40 PASS,
+9 FAIL. The same 9 tests fail with the same errors, and every baseline
+PASS still passes, including test_fft_lib_1, test_image_1, test_hw_mul,
+test_dma_fft, test_tx_9 and the feedback-bus tests. test_recip_1 passes (0
+mismatches; divide 593 ticks, cmul 533). No regression.

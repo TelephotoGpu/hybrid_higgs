@@ -33,7 +33,7 @@ double sc_time_stamp () {
 
 eth_node_t * eth_node = top->\
                         tb_higgs_top->\
-                        eth_top->q_engine_inst->piston_inst->unode28;
+                        eth_top->q_engine_inst->piston_inst->vmem;
 
 
 int main(int argc, char** argv, char** env) {

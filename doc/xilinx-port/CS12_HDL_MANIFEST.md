@@ -62,6 +62,7 @@ libs/q-engine/piston/hdl/operm_dat_2_1.v
 libs/q-engine/piston/hdl/kap_ctrl_ctrl_1_5.v
 libs/q-engine/piston/hdl/kap_ctrl_dat_1_5.v
 libs/q-engine/piston/hdl/piston.v
+libs/q-engine/piston/hdl/piston_dp_fft.v
 libs/q-engine/piston/hdl/vector_slice.v
 libs/q-engine/piston/hdl/vector_dat_17_2.v
 libs/q-engine/piston/hdl/inmux_dat_4_1.v

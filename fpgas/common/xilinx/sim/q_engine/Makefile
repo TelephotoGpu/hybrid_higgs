@@ -51,6 +51,7 @@ PISTON_SOURCES := \
 	$(QENGINE)/piston/hdl/oumux_dat_2_5.v \
 	$(QENGINE)/piston/hdl/permutator_slice.v \
 	$(QENGINE)/piston/hdl/piston.v \
+	$(QENGINE)/piston/hdl/piston_dp_fft.v \
 	$(QENGINE)/piston/hdl/vector_ctrl_17_2.v \
 	$(QENGINE)/piston/hdl/vector_dat_17_2.v \
 	$(QENGINE)/piston/hdl/vector_slice.v \

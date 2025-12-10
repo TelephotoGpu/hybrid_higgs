@@ -128,43 +128,43 @@ module tb_higgs_top_xsim;
     end
 
     for (row = 0; row < 8; row++) begin
-      if (dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_0.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_1.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_2.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_3.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_4.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_5.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_6.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_7.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_8.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_9.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_10.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_11.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_12.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_13.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_14.dpram_inst.mem[row] !== 32'hdead ||
-          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_15.dpram_inst.mem[row] !== 32'hdead) begin
+      if (dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_0.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_1.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_2.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_3.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_4.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_5.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_6.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_7.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_8.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_9.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_10.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_11.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_12.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_13.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_14.dpram_inst.mem[row] !== 32'hdead ||
+          dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_15.dpram_inst.mem[row] !== 32'hdead) begin
         $display("FAIL: VMEM dead fill mismatch in row %0d", row);
         fail = 1;
       end
     end
 
-    if (dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_0.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_1.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_2.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_3.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_4.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_5.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_6.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_7.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_8.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_9.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_10.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_11.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_12.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_13.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_14.dpram_inst.mem[8] !== 32'hcafe ||
-        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.unode28.mem_slice_15.dpram_inst.mem[8] !== 32'hcafe) begin
+    if (dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_0.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_1.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_2.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_3.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_4.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_5.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_6.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_7.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_8.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_9.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_10.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_11.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_12.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_13.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_14.dpram_inst.mem[8] !== 32'hcafe ||
+        dut.cs20_top.vex_machine_top_inst.q_engine_inst.piston_inst.vmem.mem_slice_15.dpram_inst.mem[8] !== 32'hcafe) begin
       $display("FAIL: VMEM cafe fill mismatch in row 8");
       fail = 1;
     end

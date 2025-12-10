@@ -487,4 +487,4 @@ LOCATE COMP "HS_WEST_OUT_RB[47]" SITE "P4"; # IL12_20.LR.G0.D1_N
 # LOCATE COMP "LS_SOUTH[21]" SITE "AG28"; # IL07_31.TB.G8.D0_P
 # LOCATE COMP "LS_SOUTH[22]" SITE "AG29"; # IL07_31.TB.G8.D0_N
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;

@@ -3,6 +3,6 @@
 
 // use this file with verilator_vmem.mk and vmem_types.h
 
-#define UNODE_NAME unode28
+#define UNODE_NAME vmem
 
 #endif

@@ -8,11 +8,12 @@ clean:
 
 build_elastic:
 	./bin/gen.js
-	dot -Tsvg hdl/piston.dot > hdl/piston.svg
+	dot -Tsvg build/ref/piston.dot > hdl/piston.svg
 build:
 	./bin/templer.js --source templates/ --output templates.js
 	./bin/templer.js --source ../../datapath/templates/ --output datapath-templates.js
 	./bin/gen.js
+	$(MAKE) -C ../../spinal reqack
 	cp node_modules/reqack/rtl/eb15_ctrl.v hdl/eb15_ctrl.v
 	cp node_modules/reqack/rtl/eb17_ctrl.v hdl/eb17_ctrl.v
 	cp node_modules/reqack/rtl/eb_fifo_ctrl.v hdl/eb_fifo_ctrl.v
@@ -29,9 +30,9 @@ verilate:
 	hdl/*.sv
 
 
-# gen.js writes one netlist per datapath (both define module piston):
-# hdl/piston.v (FFT) and hdl/piston_img.v (image, doc/kernel/README.md)
-PISTON_COMMON_V = $(filter-out hdl/piston.v hdl/piston_img.v,$(wildcard hdl/*.v))
+# piston.v is shared; piston_dp_fft.v and piston_dp_img.v both define module
+# piston_dp, compile exactly one (HIGGS_DATAPATH, doc/kernel/README.md)
+PISTON_COMMON_V = $(filter-out hdl/piston_dp_fft.v hdl/piston_dp_img.v,$(wildcard hdl/*.v))
 
 verilate_lint:
 	verilator \
@@ -42,8 +43,7 @@ verilate_lint:
 	+1364-2001ext+v \
 	--top-module piston \
 	../../datapath/rtl/*.v \
-	$(PISTON_COMMON_V) hdl/piston.v
-	dot -Tsvg hdl/piston.dot > hdl/piston.svg
+	$(PISTON_COMMON_V) hdl/piston_dp_fft.v
 
 verilate_lint_img:
 	verilator \
@@ -55,7 +55,11 @@ verilate_lint_img:
 	--top-module piston \
 	../../datapath/rtl/*.v \
 	../../datapath/image/rtl/img_datapath.v \
-	$(PISTON_COMMON_V) hdl/piston_img.v
+	$(PISTON_COMMON_V) hdl/piston_dp_img.v
+
+# SpinalHDL netlists vs the reqack reference in build/ref (run build first)
+equiv:
+	$(MAKE) -C ../../spinal equiv
 
 compile: verilate
 	make -j -C obj_dir/ -f Vpiston.mk Vpiston
@@ -65,3 +69,6 @@ run:
 
 show:
 	gtkwave ./permutator.vcd -S hdl/top-wave.tcl &
+
+# build/ (gen.js reqack references) would otherwise make "build" look up to date
+.PHONY: all lint clean build_elastic build verilate verilate_lint verilate_lint_img equiv compile run show

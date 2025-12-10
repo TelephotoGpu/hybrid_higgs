@@ -53,6 +53,35 @@ Status legend: `[ ]` todo, `[~]` in progress, `[x]` done.
 * M7: simple numpy fixed-point model for prototyping and checking Verilog
   output (`libs/datapath/image/simple_model.py`, NOTES §8.1). `[x]`
 
+* M8: SpinalHDL replacement for reqack (NOTES §11). Stages, one commit
+  each:
+  * M8a: `reqack` Scala package (graph DSL, exact EB0/EB1/EB1.5/EB1.7/FIFO,
+    edge/node forks, joins, operators, macros, Verilog-header BlackBoxes),
+    lockstep equivalence harness, `k15_op.v` from Spinal, proven equal to
+    reqack. `[x]`
+  * M8b: `piston.v` + `piston_dp_fft.v` / `piston_dp_img.v` from Spinal,
+    proven equal to the reqack `piston.v` / `piston_img.v`. `[x]`
+  * M8c: build integration: Spinal writes `hdl/piston.v` +
+    `hdl/piston_dp_{fft,img}.v`, reqack only `build/ref/`; file lists,
+    `q_engine.v` parameters, `vmem` instance in the C/SV testbench paths.
+    test_fft_lib_1, test_image_1 (Verilator and XSIM) pass. `[x]`
+  * M8d: name lock (`names.lock`, checked by `make reqack`), `_1` clash
+    names fixed, reqack → Spinal name map and migration of saved
+    gtkw/tcl/lpf paths (NOTES §11.5). `[x]`
+
+* M9: reciprocal in the Spinal FFT datapath (NOTES §12). One 1/c unit per
+  cmul (8), selected by the unused m2c code 3 on m2c_ac/m2c_cd; the k14
+  layout and codes 0–2 are unchanged. `[x]`
+  * bit-exact Python model (`libs/datapath/recip/recip_model.py`), the
+    d-engine algorithm with its edge cases fixed;
+  * Spinal `Reciprocal` + unit test of all 65,536 inputs
+    (`make -C libs/spinal recip_test`);
+  * equivalence vs reqack with k14 constrained to codes 0–2
+    (`norecip.h`, `--fixup`, `--stop`);
+  * C: `vector_divide_1024()` + `config_word_cdiv_eq_05`;
+  * `sim/verilator/test_recip_1` (in `TEST_LIST`), bit-exact vs the model;
+  * before/after regression of the `sim/verilator` suite (NOTES §12.6).
+
 ## Risks / open items
 * ~~CPU↔vector ordering~~: there is no hardware fence. An SK15 token fence
   hung (MVVK15 over-pushes when the vector unit idles, NOTES §1). The

@@ -511,4 +511,4 @@ LOCATE COMP "HS_WEST_IN_RB[47]" SITE "D5"; # IL07_02.LR.G0.D0_N
 #LOCATE COMP "DDR_RESET_N" SITE "AJ32"; # Resetn, SSTL15_I, FAST, None, None
 #LOCATE COMP "DDR_WE_N"    SITE "AJ28"; # WEn, SSTL15_I, FAST, None, None
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;

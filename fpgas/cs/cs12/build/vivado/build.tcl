@@ -29,10 +29,10 @@ proc prj_src {command path} {
         return
     }
 
-    # HIGGS_DATAPATH=img: the generated image-datapath netlist replaces piston.v
+    # HIGGS_DATAPATH=img: the image datapath replaces the FFT piston_dp
     global higgs_datapath
-    if {$higgs_datapath eq "img" && [string match "*/q-engine/piston/hdl/piston.v" $path]} {
-        set path [file join [file dirname $path] piston_img.v]
+    if {$higgs_datapath eq "img" && [string match "*/q-engine/piston/hdl/piston_dp_fft.v" $path]} {
+        set path [file join [file dirname $path] piston_dp_img.v]
     }
 
     add_files -norecurse $path

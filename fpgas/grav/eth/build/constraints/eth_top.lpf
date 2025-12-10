@@ -497,7 +497,7 @@ LOCATE COMP "HS_SOUTH_IN_RB[47]" SITE "U26"; # IL07_20.LR.G0.D0_N ## for i_ring_
 # LOCATE COMP "LS_WEST[22]" SITE "U4";  # IL68_10.SDR.G13.D5_P
 
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;
 
 
 LOCATE COMP "P1B_SDR_OUT[0]" SITE "E8";

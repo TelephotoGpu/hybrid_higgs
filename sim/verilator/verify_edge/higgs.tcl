@@ -108,8 +108,8 @@ lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.xbaseband_cmd_valid"
 lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.xbaseband_cmd_payload_instruction"
 lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.xbaseband_cmd_payload_rs1"
 lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.xbaseband_cmd_ready"
-lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.piston_inst.dat232"
-lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.piston_inst.dat32"
+lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.piston_inst.dp.s0_r4_c0_im_0"
+lappend ethxbb "TOP.tb_higgs_top.eth_top.q_engine_inst.piston_inst.inmux_inmux"
 set num_added [ gtkwave::addSignalsFromList $ethxbb ]
 
 

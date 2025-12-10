@@ -73,7 +73,7 @@ public:
 		if( i == run_time*2-4 )
 		{
 
-            node_t * dut_node = top->q_engine->piston_inst->unode28;
+            node_t * dut_node = top->q_engine->piston_inst->vmem;
 
 
   			hexdump(dut_node,"ALL", 0, 4096);

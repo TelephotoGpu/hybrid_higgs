@@ -527,14 +527,14 @@ LOCATE COMP "HS_WEST_in[37]" SITE "AB3"; # IL68_00.DDR.G3.D0_P
 #LOCATE COMP "DDR_RESET_N" SITE "AJ32"; # Resetn, SSTL15_I, FAST, None, None
 #LOCATE COMP "DDR_WE_N"    SITE "AJ28"; # WEn, SSTL15_I, FAST, None, None
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;
 
 #UGROUP "riscv" BBOX 35 40 
 #	BLKNAME vex_machine_top_inst/q_engine_inst/VexRiscv.VexRiscv;
 #LOCATE UGROUP "riscv" SITE "R2C85D" ;
 #UGROUP "iperm" BBOX 52 45 
-#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/unode32;
+#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/iperm_data;
 #LOCATE UGROUP "iperm" SITE "R42C2D" ;
 #UGROUP "operm" BBOX 52 46 
-#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/unode33;
+#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/operm_data;
 #LOCATE UGROUP "operm" SITE "R42C79D" ;

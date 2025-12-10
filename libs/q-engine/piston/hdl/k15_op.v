@@ -1,159 +1,214 @@
+// Generator : SpinalHDL v1.11.0    git head : 63852c61e498798f4e293594ce53fcb02c45eb6b
+// Component : k15_op
+
+
+
 module k15_op (
-    // per node (target / initiator)
-    input              clk,
-    input              reset_n,
-    input       [23:0] t_k15_op_dat,
-    input              t_k15_op_req,
-    output             t_k15_op_ack,
-    output      [23:0] i_k15_op_dat,
-    output             i_k15_op_req,
-    input              i_k15_op_ack
-);
-// per edge
-wire      [23:0] dat0, dat0_nxt;
-wire      [23:0] dat1, dat1_nxt;
-wire      [23:0] dat2, dat2_nxt;
-// per node
-// node:0 is target port
-assign dat0_nxt = t_k15_op_dat;
-
-// node:1 equality
-assign dat1_nxt = dat0;
-
-// node:2 equality
-assign dat2_nxt = dat1;
-
-// node:3 is initiator port
-assign i_k15_op_dat = dat2;
-
-// per edge
-
-// edge:0 EB1.5
-wire en0_0, en0_1, sel0;
-reg [23:0] dat0_r0, dat0_r1;
-always @(posedge clk) if (en0_0) dat0_r0 <= dat0_nxt;
-always @(posedge clk) if (en0_1) dat0_r1 <= dat0_nxt;
-
-assign dat0 = sel0 ? dat0_r1 : dat0_r0;
-
-
-// edge:1 EB1
-wire en1;
-reg [23:0] dat1_r;
-always @(posedge clk) if (en1) dat1_r <= dat1_nxt;
-assign dat1 = dat1_r;
-
-
-// edge:2 EB1.5
-wire en2_0, en2_1, sel2;
-reg [23:0] dat2_r0, dat2_r1;
-always @(posedge clk) if (en2_0) dat2_r0 <= dat2_nxt;
-always @(posedge clk) if (en2_1) dat2_r1 <= dat2_nxt;
-
-assign dat2 = sel2 ? dat2_r1 : dat2_r0;
-
-k15_op_ctrl uctrl (
-    .clk(clk),
-    .reset_n(reset_n),
-    .t_k15_op_req(t_k15_op_req),
-    .t_k15_op_ack(t_k15_op_ack),
-    .i_k15_op_req(i_k15_op_req),
-    .i_k15_op_ack(i_k15_op_ack),
-    .en0_0(en0_0),
-    .en0_1(en0_1),
-    .sel0(sel0),
-    .en1(en1),
-    .en2_0(en2_0),
-    .en2_1(en2_1),
-    .sel2(sel2)
-);
-endmodule // k15_op
-
-module k15_op_ctrl (
-    // per node (target / initiator)
-    input              clk,
-    input              reset_n,
-    input              t_k15_op_req,
-    output             t_k15_op_ack,
-    output             i_k15_op_req,
-    input              i_k15_op_ack,
-    output             en0_0,
-    output             en0_1,
-    output             sel0,
-    output             en1,
-    output             en2_0,
-    output             en2_1,
-    output             sel2
-);
-// per edge
-wire             req0, ack0, ack0_0, req0_0;
-wire             req1, ack1, ack1_0, req1_0;
-wire             req2, ack2, ack2_0, req2_0;
-// node:t_k15_op target
-assign req0 = t_k15_op_req;
-assign t_k15_op_ack = ack0;
-
-// edge:0 EB1.5
-wire ack0m, req0m;
-eb15_ctrl uctrl_0 (
-    .t_0_req(req0), .t_0_ack(ack0),
-    .i_0_req(req0m), .i_0_ack(ack0m),
-    .en0(en0_0), .en1(en0_1), .sel(sel0),
-    .clk(clk), .reset_n(reset_n)
+  input  wire          clk,
+  input  wire          reset_n,
+  input  wire [23:0]   t_k15_op_dat,
+  input  wire          t_k15_op_req,
+  output wire          t_k15_op_ack,
+  output wire [23:0]   i_k15_op_dat,
+  output wire          i_k15_op_req,
+  input  wire          i_k15_op_ack
 );
 
+  wire       [23:0]   t_k15_op_0;
+  wire       [23:0]   t_k15_op_0_nxt;
+  wire                t_k15_op_0_req;
+  wire                t_k15_op_0_ack;
+  wire                t_k15_op_0_m_req;
+  wire                t_k15_op_0_m_ack;
+  wire                t_k15_op_0_to_unity1_req;
+  wire                t_k15_op_0_to_unity1_ack;
+  wire       [23:0]   unity1_0;
+  wire       [23:0]   unity1_0_nxt;
+  wire                unity1_0_req;
+  wire                unity1_0_ack;
+  wire                unity1_0_m_req;
+  wire                unity1_0_m_ack;
+  wire                unity1_0_to_unity2_req;
+  wire                unity1_0_to_unity2_ack;
+  wire       [23:0]   unity2_0;
+  wire       [23:0]   unity2_0_nxt;
+  wire                unity2_0_req;
+  wire                unity2_0_ack;
+  wire                unity2_0_m_req;
+  wire                unity2_0_m_ack;
+  wire                unity2_0_to_i_k15_op_req;
+  wire                unity2_0_to_i_k15_op_ack;
+  reg        [4:0]    t_k15_op_0_eb_state;
+  reg        [4:0]    t_k15_op_0_eb_state_nxt;
+  wire                t_k15_op_0_eb_en0;
+  wire                t_k15_op_0_eb_en1;
+  wire                t_k15_op_0_eb_sel;
+  reg        [23:0]   t_k15_op_0_eb_r0;
+  reg        [23:0]   t_k15_op_0_eb_r1;
+  reg                 unity1_0_eb_valid;
+  wire                unity1_0_eb_en;
+  reg        [23:0]   unity1_0_eb_r;
+  reg        [4:0]    unity2_0_eb_state;
+  reg        [4:0]    unity2_0_eb_state_nxt;
+  wire                unity2_0_eb_en0;
+  wire                unity2_0_eb_en1;
+  wire                unity2_0_eb_sel;
+  reg        [23:0]   unity2_0_eb_r0;
+  reg        [23:0]   unity2_0_eb_r1;
 
-// edge:0 fork
+  assign t_k15_op_0_nxt = t_k15_op_dat;
+  assign t_k15_op_0_req = t_k15_op_req;
+  assign t_k15_op_ack = t_k15_op_0_ack;
+  assign unity1_0_nxt = t_k15_op_0;
+  assign unity1_0_req = t_k15_op_0_to_unity1_req;
+  assign t_k15_op_0_to_unity1_ack = unity1_0_ack;
+  assign unity2_0_nxt = unity1_0;
+  assign unity2_0_req = unity1_0_to_unity2_req;
+  assign unity1_0_to_unity2_ack = unity2_0_ack;
+  assign i_k15_op_dat = unity2_0;
+  assign i_k15_op_req = unity2_0_to_i_k15_op_req;
+  assign unity2_0_to_i_k15_op_ack = i_k15_op_ack;
+  always @(*) begin
+    t_k15_op_0_eb_state_nxt = t_k15_op_0_eb_state;
+    case(t_k15_op_0_eb_state)
+      5'h14 : begin
+        if(t_k15_op_0_req) begin
+          t_k15_op_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      5'h1a : begin
+        if(((! t_k15_op_0_req) && t_k15_op_0_m_ack)) begin
+          t_k15_op_0_eb_state_nxt = 5'h14;
+        end
+        if((t_k15_op_0_req && (! t_k15_op_0_m_ack))) begin
+          t_k15_op_0_eb_state_nxt = 5'h08;
+        end
+        if((t_k15_op_0_req && t_k15_op_0_m_ack)) begin
+          t_k15_op_0_eb_state_nxt = 5'h1d;
+        end
+      end
+      5'h08 : begin
+        if(t_k15_op_0_m_ack) begin
+          t_k15_op_0_eb_state_nxt = 5'h1d;
+        end
+      end
+      5'h1d : begin
+        if(((! t_k15_op_0_req) && t_k15_op_0_m_ack)) begin
+          t_k15_op_0_eb_state_nxt = 5'h14;
+        end
+        if((t_k15_op_0_req && (! t_k15_op_0_m_ack))) begin
+          t_k15_op_0_eb_state_nxt = 5'h09;
+        end
+        if((t_k15_op_0_req && t_k15_op_0_m_ack)) begin
+          t_k15_op_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      5'h09 : begin
+        if(t_k15_op_0_m_ack) begin
+          t_k15_op_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      default : begin
+      end
+    endcase
+  end
+
+  assign t_k15_op_0_eb_en0 = (t_k15_op_0_eb_state[2] && t_k15_op_0_req);
+  assign t_k15_op_0_eb_en1 = (t_k15_op_0_eb_state[1] && t_k15_op_0_req);
+  assign t_k15_op_0_eb_sel = t_k15_op_0_eb_state[0];
+  assign t_k15_op_0_ack = t_k15_op_0_eb_state[4];
+  assign t_k15_op_0_m_req = t_k15_op_0_eb_state[3];
+  assign t_k15_op_0 = (t_k15_op_0_eb_sel ? t_k15_op_0_eb_r1 : t_k15_op_0_eb_r0);
+  assign t_k15_op_0_to_unity1_req = t_k15_op_0_m_req;
+  assign t_k15_op_0_m_ack = t_k15_op_0_to_unity1_ack;
+  assign unity1_0_ack = ((! unity1_0_eb_valid) || unity1_0_m_ack);
+  assign unity1_0_eb_en = (unity1_0_req && unity1_0_ack);
+  assign unity1_0_m_req = unity1_0_eb_valid;
+  assign unity1_0 = unity1_0_eb_r;
+  assign unity1_0_to_unity2_req = unity1_0_m_req;
+  assign unity1_0_m_ack = unity1_0_to_unity2_ack;
+  always @(*) begin
+    unity2_0_eb_state_nxt = unity2_0_eb_state;
+    case(unity2_0_eb_state)
+      5'h14 : begin
+        if(unity2_0_req) begin
+          unity2_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      5'h1a : begin
+        if(((! unity2_0_req) && unity2_0_m_ack)) begin
+          unity2_0_eb_state_nxt = 5'h14;
+        end
+        if((unity2_0_req && (! unity2_0_m_ack))) begin
+          unity2_0_eb_state_nxt = 5'h08;
+        end
+        if((unity2_0_req && unity2_0_m_ack)) begin
+          unity2_0_eb_state_nxt = 5'h1d;
+        end
+      end
+      5'h08 : begin
+        if(unity2_0_m_ack) begin
+          unity2_0_eb_state_nxt = 5'h1d;
+        end
+      end
+      5'h1d : begin
+        if(((! unity2_0_req) && unity2_0_m_ack)) begin
+          unity2_0_eb_state_nxt = 5'h14;
+        end
+        if((unity2_0_req && (! unity2_0_m_ack))) begin
+          unity2_0_eb_state_nxt = 5'h09;
+        end
+        if((unity2_0_req && unity2_0_m_ack)) begin
+          unity2_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      5'h09 : begin
+        if(unity2_0_m_ack) begin
+          unity2_0_eb_state_nxt = 5'h1a;
+        end
+      end
+      default : begin
+      end
+    endcase
+  end
+
+  assign unity2_0_eb_en0 = (unity2_0_eb_state[2] && unity2_0_req);
+  assign unity2_0_eb_en1 = (unity2_0_eb_state[1] && unity2_0_req);
+  assign unity2_0_eb_sel = unity2_0_eb_state[0];
+  assign unity2_0_ack = unity2_0_eb_state[4];
+  assign unity2_0_m_req = unity2_0_eb_state[3];
+  assign unity2_0 = (unity2_0_eb_sel ? unity2_0_eb_r1 : unity2_0_eb_r0);
+  assign unity2_0_to_i_k15_op_req = unity2_0_m_req;
+  assign unity2_0_m_ack = unity2_0_to_i_k15_op_ack;
+  always @(posedge clk or negedge reset_n) begin
+    if(!reset_n) begin
+      t_k15_op_0_eb_state <= 5'h14;
+      unity1_0_eb_valid <= 1'b0;
+      unity2_0_eb_state <= 5'h14;
+    end else begin
+      t_k15_op_0_eb_state <= t_k15_op_0_eb_state_nxt;
+      unity1_0_eb_valid <= ((! unity1_0_ack) || unity1_0_req);
+      unity2_0_eb_state <= unity2_0_eb_state_nxt;
+    end
+  end
+
+  always @(posedge clk) begin
+    if(t_k15_op_0_eb_en0) begin
+      t_k15_op_0_eb_r0 <= t_k15_op_0_nxt;
+    end
+    if(t_k15_op_0_eb_en1) begin
+      t_k15_op_0_eb_r1 <= t_k15_op_0_nxt;
+    end
+    if(unity1_0_eb_en) begin
+      unity1_0_eb_r <= unity1_0_nxt;
+    end
+    if(unity2_0_eb_en0) begin
+      unity2_0_eb_r0 <= unity2_0_nxt;
+    end
+    if(unity2_0_eb_en1) begin
+      unity2_0_eb_r1 <= unity2_0_nxt;
+    end
+  end
 
 
-assign req0_0 = req0m;
-
-assign ack0m = ack0_0;
-
-
-
-// edge:1 EB1
-wire ack1m;
-reg req1m;
-assign en1 = req1 & ack1;
-assign ack1 = ~req1m | ack1m;
-always @(posedge clk or negedge reset_n) if (~reset_n) req1m <= 1'b0; else req1m <= ~ack1 | req1;
-
-
-// edge:1 fork
-
-
-assign req1_0 = req1m;
-
-assign ack1m = ack1_0;
-
-
-
-// edge:2 EB1.5
-wire ack2m, req2m;
-eb15_ctrl uctrl_2 (
-    .t_0_req(req2), .t_0_ack(ack2),
-    .i_0_req(req2m), .i_0_ack(ack2m),
-    .en0(en2_0), .en1(en2_1), .sel(sel2),
-    .clk(clk), .reset_n(reset_n)
-);
-
-
-// edge:2 fork
-
-
-assign req2_0 = req2m;
-
-assign ack2m = ack2_0;
-
-
-// node:1 join undefined
-assign req1 = req0_0;
-assign ack0_0 = ack1;
-// node:2 join undefined
-assign req2 = req1_0;
-assign ack1_0 = ack2;
-// node:3 initiator
-assign i_k15_op_req = req2_0;
-assign ack2_0 = i_k15_op_ack;
-endmodule // k15_op_ctrl
+endmodule

@@ -159,6 +159,7 @@ test_ring_inout \
 test_ring_simple \
 test_slice_0 \
 test_fft_lib_1 \
+test_recip_1 \
 test_fill_lib \
 test_mover_lib \
 test_mapper_lib \

@@ -82,11 +82,13 @@ $(DATAPATH_REPO)/rtl/muladdsub.v
 # Compile-time datapath selection (doc/kernel/README.md):
 #   HIGGS_DATAPATH=fft  (default) original 16I/16Q complex FFT datapath
 #   HIGGS_DATAPATH=img  image kernel datapath (libs/datapath/image)
-# piston/bin/gen.js (make -C piston build) writes one netlist per datapath,
-# both defining module piston: hdl/piston.v and hdl/piston_img.v.
+# SpinalHDL (make -C piston build, libs/spinal qengine.PistonVerilog) writes
+# the shared hdl/piston.v and one hdl/piston_dp_<datapath>.v per datapath,
+# each defining module piston_dp.
 # Lazy so a test Makefile may set HIGGS_DATAPATH before or after the include.
 HIGGS_DATAPATH ?= fft
-PISTON_NETLIST = $(Q_ENGINE_REPO)/piston/hdl/$(if $(filter img,$(HIGGS_DATAPATH)),piston_img.v,piston.v)
+PISTON_NETLIST = $(Q_ENGINE_REPO)/piston/hdl/piston.v \
+	$(Q_ENGINE_REPO)/piston/hdl/piston_dp_$(if $(filter img,$(HIGGS_DATAPATH)),img,fft).v
 Q_ENGINE_ALL_VERILOG += $(if $(filter img,$(HIGGS_DATAPATH)),$(DATAPATH_REPO)/image/rtl/img_datapath.v)
 
 

@@ -515,4 +515,4 @@ LOCATE COMP "HS_WEST_OUT_LAST[35]" SITE "AB5"; # IL68_10.DDR.G2.S_N
 # LOCATE COMP "LS_WEST[22]" SITE "U4";  # IL68_10.SDR.G13.D5_P
 
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;

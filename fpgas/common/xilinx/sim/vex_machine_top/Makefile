@@ -63,6 +63,7 @@ SOURCES := \
 	$(Q_ENGINE)/piston/hdl/oumux_dat_2_5.v \
 	$(Q_ENGINE)/piston/hdl/permutator_slice.v \
 	$(Q_ENGINE)/piston/hdl/piston.v \
+	$(Q_ENGINE)/piston/hdl/piston_dp_fft.v \
 	$(Q_ENGINE)/piston/hdl/vector_ctrl_17_2.v \
 	$(Q_ENGINE)/piston/hdl/vector_dat_17_2.v \
 	$(Q_ENGINE)/piston/hdl/vector_slice.v \

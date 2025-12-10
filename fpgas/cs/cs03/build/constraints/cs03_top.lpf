@@ -528,12 +528,12 @@ LOCATE COMP "HS_WEST_in[47]" SITE "D5" ;# IL07_03.LR.G0.D0_N
 #	BLKNAME vex_machine_top_inst/q_engine_inst/VexRiscv.VexRiscv;
 #LOCATE UGROUP "riscv" SITE "R2C85D" ;
 #UGROUP "iperm" BBOX 52 45 
-#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/unode32;
+#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/iperm_data;
 #LOCATE UGROUP "iperm" SITE "R42C2D" ;
 #UGROUP "operm" BBOX 52 46 
-#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/unode33;
+#	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/operm_data;
 #LOCATE UGROUP "operm" SITE "R42C79D" ;
 #UGROUP "vector_dat" BBOX 53 56 
 #	BLKNAME vex_machine_top_inst/q_engine_inst/piston_inst/unode17;
 #LOCATE UGROUP "vector_dat" SITE "R23C30D" ;
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;

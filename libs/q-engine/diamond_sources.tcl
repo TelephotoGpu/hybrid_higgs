@@ -48,6 +48,7 @@ prj_src add $abs_path/piston/hdl/operm_dat_2_1.v
 prj_src add $abs_path/piston/hdl/kap_ctrl_ctrl_1_5.v
 prj_src add $abs_path/piston/hdl/kap_ctrl_dat_1_5.v
 prj_src add $abs_path/piston/hdl/piston.v
+prj_src add $abs_path/piston/hdl/piston_dp_fft.v
 prj_src add $abs_path/piston/hdl/vector_slice.v
 prj_src add $abs_path/piston/hdl/vector_dat_17_2.v
 prj_src add $abs_path/piston/hdl/inmux_dat_4_1.v

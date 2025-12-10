@@ -413,4 +413,4 @@ IOBUF PORT  "DDR_RESET_N"    IO_TYPE=SSTL15_I  SLEWRATE=FAST ;
 # LOCATE COMP "DDR_UDQS[1]" SITE "AB28"; # UDQS1, SSTL15D_I, FAST, OFF, 100.0
 # LOCATE COMP "DDR_WE_N" SITE "AJ28"; # WEn, SSTL15_I, FAST, None, None
 
-BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/dat40_r[*]" ;
+BLOCK NET "vex_machine_top_inst/q_engine_inst/piston_inst/oumux_k14_eb_r[*]" ;
