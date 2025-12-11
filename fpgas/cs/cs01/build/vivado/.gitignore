@@ -1,0 +1,5 @@
+.Xil/
+cong/
+out/
+clockInfo.txt
+hs_err_pid*.log

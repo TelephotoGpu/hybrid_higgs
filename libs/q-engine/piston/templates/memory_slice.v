@@ -74,15 +74,78 @@ module dpram
     input [31:0]      din_0,
     input             we_0,
     input             re_0,
-    output reg [31:0] dout_0,
+    output wire [31:0] dout_0,
     input [11:0]      addr_1,
     input [31:0]      din_1,
     input             we_1,
-    output reg [31:0] dout_1
+    output wire [31:0] dout_1
     );
    
-   
+`ifdef HIGGS_FPGA_XILINX
+   xpm_memory_tdpram #(
+      .ADDR_WIDTH_A(12),
+      .ADDR_WIDTH_B(12),
+      .AUTO_SLEEP_TIME(0),
+      .BYTE_WRITE_WIDTH_A(32),
+      .BYTE_WRITE_WIDTH_B(32),
+      .CLOCKING_MODE("common_clock"),
+      .ECC_MODE("no_ecc"),
+      .MEMORY_INIT_FILE("none"),
+      .MEMORY_INIT_PARAM("0"),
+      .MEMORY_OPTIMIZATION("true"),
+      .MEMORY_PRIMITIVE("block"),
+      .MEMORY_SIZE(DEPTH * 32),
+      .MESSAGE_CONTROL(0),
+      .READ_DATA_WIDTH_A(32),
+      .READ_DATA_WIDTH_B(32),
+      .READ_LATENCY_A(1),
+      .READ_LATENCY_B(1),
+      .READ_RESET_VALUE_A("0"),
+      .READ_RESET_VALUE_B("0"),
+      .RST_MODE_A("SYNC"),
+      .RST_MODE_B("SYNC"),
+      .SIM_ASSERT_CHK(0),
+      .USE_EMBEDDED_CONSTRAINT(0),
+      .USE_MEM_INIT(0),
+      .WAKEUP_TIME("disable_sleep"),
+      .WRITE_DATA_WIDTH_A(32),
+      .WRITE_DATA_WIDTH_B(32),
+      .WRITE_MODE_A("write_first"),
+      .WRITE_MODE_B("write_first")
+   ) xilinx_dpram (
+      .douta(dout_0),
+      .doutb(dout_1),
+      .dbiterra(),
+      .dbiterrb(),
+      .sbiterra(),
+      .sbiterrb(),
+      .addra(addr_0),
+      .addrb(addr_1),
+      .clka(clk),
+      .clkb(clk),
+      .dina(din_0),
+      .dinb(din_1),
+      .ena(re_0 | we_0),
+      .enb(1'b1),
+      .injectdbiterra(1'b0),
+      .injectdbiterrb(1'b0),
+      .injectsbiterra(1'b0),
+      .injectsbiterrb(1'b0),
+      .regcea(1'b1),
+      .regceb(1'b1),
+      .rsta(1'b0),
+      .rstb(1'b0),
+      .sleep(1'b0),
+      .wea(we_0),
+      .web(we_1)
+   );
+`else
    reg [31:0]         mem [DEPTH-1:0] /* synthesis syn_ramstyle = block_ram */ ;
+   reg [31:0]         dout_0_reg;
+   reg [31:0]         dout_1_reg;
+
+   assign dout_0 = dout_0_reg;
+   assign dout_1 = dout_1_reg;
 `ifdef LOAD_VMEM
    initial       $readmemh(MEMINIT,mem);
 `endif
@@ -99,19 +162,20 @@ module dpram
    
    always @(posedge clk) begin
       if(re_0)
-        dout_0<= mem[addr_0];
+        dout_0_reg<= mem[addr_0];
       if (we_0) begin
          mem[addr_0] <= din_0;
-         dout_0 <= din_0;
+         dout_0_reg <= din_0;
       end
    end
 
    always @(posedge clk) begin
-      dout_1<= mem[addr_1];
+      dout_1_reg<= mem[addr_1];
       if (we_1) begin
          mem[addr_1] <= din_1;
-         dout_1 <= din_1;
+         dout_1_reg <= din_1;
       end
    end
+`endif
 
 endmodule
