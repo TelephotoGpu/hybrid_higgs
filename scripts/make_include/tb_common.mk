@@ -69,11 +69,22 @@ CPP_TB_FILES+= $(wildcard $(VER_CPP_INCLUDE_PATH)/*.cpp)
 C_SRC = ./c/src
 VER_BINARY = Vtb_higgs_top
 
+# Detect the installed verilator version so we can toggle version-specific
+# flags below. `verilator --version` prints e.g.
+#   "Verilator 4.016 2019-06-16 rev UNKNOWN_REV"
+#   "Verilator 4.222 2022-05-02 rev v4.222"
+VERILATOR_VERSION:=$(shell verilator --version 2>/dev/null | awk '{print $$2}')
 
 # try:
 #   --trace-fst
 VER_FLAGS = -Wno-PINMISSING --trace 
 # VER_FLAGS = --trace  -Wall 
+
+# -Wno-TIMESCALEMOD: 4.016 does not understand this warning category
+# (unknown -Wno- causes a hard error), so it must only be passed on 4.222+.
+ifneq ($(VERILATOR_VERSION),4.016)
+VER_FLAGS += -Wno-TIMESCALEMOD
+endif
 
 
 VER_FLAGS += -DVERILATE_DEF
@@ -186,7 +197,7 @@ verilate:
 	${ADDCFLAGS} \
 	--gdbbt \
 	${VERILATOR_ARGS} \
-	-Wno-UNOPTFLAT -Wno-WIDTH \
+	-Wno-WIDTH \
 	--x-assign unique \
 	--exe \
 	$(CPP_TB_FILES) \
@@ -195,8 +206,14 @@ verilate:
 	$(EXTRA_VERILATOR_ARGS)
 
 
+# COMPILE_JOBS can be overridden (e.g. COMPILE_JOBS=1) by callers that need to
+# cap parallelism, such as the top-level CI test driver which limits memory
+# usage on GitHub-hosted runners. Defaults to all available cores for fast
+# standalone/local builds.
+COMPILE_JOBS ?= $(shell nproc)
+
 compile:
-	make  -j  -C obj_dir/ -f Vtb_higgs_top.mk Vtb_higgs_top
+	make  -j$(COMPILE_JOBS)  -C obj_dir/ -f Vtb_higgs_top.mk Vtb_higgs_top
 
 .PHONY: clean show show1 quick quickt check
 

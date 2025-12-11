@@ -83,10 +83,10 @@ module fb_eq_join
 
       h_one = q_dumping && ~q_stallovr;
 
+      n_stallovr = (t_eq_valid && t_eq_last);
+
       n_stalcnt = (n_blocked && ~n_stallovr) ? (q_stalcnt + 1) : 
                 ((q_dumping && ~n_stallovr) ? q_stalcnt : 0) ;
-
-      n_stallovr = (t_eq_valid && t_eq_last);
 
       n_dumping = (q_stalcnt > DROP_AFTER) ? ~n_stallovr : 0;
       

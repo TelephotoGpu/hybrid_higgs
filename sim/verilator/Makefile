@@ -71,6 +71,15 @@ define invoke_rnd_test_clean
 : $(foreach ttest,$(RANDOMIZED_TESTS), && make -C $(ttest) clean )
 endef
 
+# Build, run (N times), then clean a single randomized test directory before
+# moving on to the next one. This keeps at most one test's obj_dir/build
+# artifacts on disk at a time, instead of building all RANDOMIZED_TESTS
+# directories up front (which can exhaust disk space on CI runners, causing
+# `ar`/`ld` failures from a truncated archive rather than a real test failure).
+define invoke_rnd_test_build_run_clean
+: $(foreach ttest,$(RANDOMIZED_TESTS), && make -C $(ttest) pre_work $(foreach n,$(1), && make -C $(ttest) run test_post_check) && make -C $(ttest) clean )
+endef
+
 # test_seeds internally already runs "run test_post_check"
 define invoke_test_seeds
 : $(foreach ttest,$(RANDOMIZED_TESTS), && make -C $(ttest) test_seeds )
@@ -89,17 +98,16 @@ test_seed_build:
 	$(call invoke_rnd_seed_test_build)
 
 test_random:
-	make test_random_build
-	make random_test_run
+	$(call invoke_rnd_test_build_run_clean,1)
 
+# generated_test_random.sh now builds (via no_clean_test) and cleans each
+# RANDOMIZED_TESTS directory one at a time, so no separate bulk pre-build
+# step is needed here (see write_out_test_bash_file).
 unfailing_test_random:
-	make test_random_build
 	make unfailing_random_test_run
 
 test_random_multi:
-	make test_random_build
-	make random_test_run
-	make random_test_run
+	$(call invoke_rnd_test_build_run_clean,1 2)
 
 test_seeds:
 	make test_seed_build
@@ -173,6 +181,20 @@ test_uart_frame_5 \
 test_tx_9 \
 test_bootloader
 
+# --- CI sharding support ---
+# TEST_SHARD (0-based) and TEST_SHARDS let TEST_LIST be split across
+# multiple parallel CI jobs. Tests are assigned round-robin
+# (index % TEST_SHARDS == TEST_SHARD), so the split stays automatically
+# balanced as tests are added/removed to TEST_LIST above -- no manual
+# list-splitting required. Defaults (shard 0 of 1) select every test,
+# matching the unsharded behavior used by plain local "make test" runs.
+# RANDOMIZED_TESTS is intentionally NOT sharded here: it already has its
+# own separate CI stages (jenkins_automated_randomized_test[_seeds]).
+TEST_SHARD ?= 0
+TEST_SHARDS ?= 1
+
+TEST_LIST := $(shell echo $(TEST_LIST) | awk -v shard=$(TEST_SHARD) -v shards=$(TEST_SHARDS) '{ for (i = 1; i <= NF; i++) if ((i - 1) % shards == shard) printf "%s ", $$i }')
+
 define invoke_test_build
 : $(foreach ttest,$(TEST_LIST), && make -C $(ttest) test )
 endef
@@ -243,9 +265,14 @@ test:
 	make -C ../../ vall
 	make test_compile_only    # should be quick
 	make test_compile_production
-	# Limit parallel compilation to avoid exhausting GitHub-hosted runner memory.
-	make -j1 pre_work
-	# Only run tests 1:1 now that parallel compile is done
+	# Previously this did a bulk "make -j1 pre_work" here, which builds
+	# (verilate+compile) every TEST_LIST/RANDOMIZED_TESTS directory up front,
+	# leaving all of their obj_dir/ build artifacts on disk simultaneously.
+	# On GitHub-hosted runners this can exhaust disk space, causing `ar`/`ld`
+	# to fail on a truncated archive (e.g. test_ring_simple) rather than a
+	# real test failure. unfailing_no_clean_test/unfailing_test_random below
+	# now build, run, and clean each test one at a time instead (see
+	# write_out_test_bash_file), so no separate pre_work phase is needed.
 	# If unfailing mode means that if any fail, we keep going
 	# However if any fail in normal tests, we will not get to the random ones
 	make unfailing_no_clean_test
@@ -332,18 +359,32 @@ define foow
 : $(foreach ttest,$(TEST_LIST), && echo test___$(ttest) )
 endef
 
+# Each generated shunit2 test function builds+runs a single test directory
+# via $(3) (a self-contained target such as "no_clean_test" that includes
+# verilate/compile/run), then cleans that directory's obj_dir regardless of
+# pass/fail before returning the real test result. This keeps at most one
+# test's build artifacts on disk at a time instead of accumulating every
+# test's obj_dir for the whole TEST_LIST/RANDOMIZED_TESTS run, which can
+# exhaust disk space on CI runners (ar/ld failures from a truncated archive
+# rather than a real test failure).
 define write_out_test_bash_file
 : $(foreach ttest,$(2), \
 && echo test___$(ttest)\(\) { >> $(1)\
 && echo make -C $(ttest) $(3) test_post_check >> $(1)\
+&& echo local rc=\$$\? >> $(1)\
+&& echo make -C $(ttest) clean >> $(1)\
+&& echo return \$$rc >> $(1)\
 && echo } >> $(1)\
 && echo >> $(1)\
 )
 endef
 
 # Write a new bash script
-# This target gos through the test variable list and writes the file out
-# We only need to re-generate the file if this Makefile has changed
+# This target gos through the test variable list and writes the file out.
+# Marked .PHONY (rather than depending only on Makefile's mtime) so that
+# changing TEST_SHARD/TEST_SHARDS always regenerates it with the correct
+# sharded TEST_LIST, instead of reusing a stale file from a previous shard.
+.PHONY: generated_test.sh
 generated_test.sh: Makefile
 	@echo "#!/bin/bash" > $@
 	@echo "" >> $@
@@ -361,7 +402,7 @@ generated_test_random.sh: Makefile
 	@echo "#!/bin/bash" > $@
 	@echo "" >> $@
 	@echo "" >> $@
-	@$(call write_out_test_bash_file, $@, $(RANDOMIZED_TESTS), run)
+	@$(call write_out_test_bash_file, $@, $(RANDOMIZED_TESTS), no_clean_test)
 	@echo "SHUNIT_COLOR=none" >> $@
 	@echo "" >> $@
 	@echo "# Source test library (include it)" >> $@

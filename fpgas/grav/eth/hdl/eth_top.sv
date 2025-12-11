@@ -500,8 +500,7 @@ module eth_top #(
    reg [31:0]     fb_eq_join_data;
    reg            fb_eq_join_valid, fb_eq_join_last, fb_eq_join_ready;
 
-   reg [31:0]     split_fb_data;
-   reg            split_fb_valid, split_fb_last, split_fb_ready;
+   reg            split_fb_last;
 
    reg [31:0]     rx_in_data;
    reg            rx_in_valid, rx_in_ready;

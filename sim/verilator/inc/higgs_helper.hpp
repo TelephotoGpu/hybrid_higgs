@@ -414,7 +414,6 @@ public:
     std::vector<uint32_t> rb_previous;
 
     const std::vector<std::string> enabled_fpgas;
-    constexpr std::vector<std::string> GetEnabledFPGAS(void);
 
 
     uint32_t (Vtb_higgs_top::*get_iBus_cmd_payload_pc)(void);
@@ -2068,7 +2067,7 @@ void handleMonitorRbDrop() {
 
 
 
-    std::vector<std::string> GetEnabledFPGAS(void) {
+    constexpr std::vector<std::string> GetEnabledFPGAS(void) {
         std::vector<std::string> r;
 
 

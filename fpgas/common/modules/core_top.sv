@@ -22,9 +22,9 @@ module core_top #(
         
     parameter int       CLOCK_SHIFT_TRAINING_COUNTER_LIMIT                 = 100,    // (ask Anurag about what this does if confused)
     parameter int       NUM_SYS_CLK_SRSTS                                  = 1,      // sets the number of system clock synchronous reset created (the only reason to do this is if you want to release different modules from reset at different times)
-    parameter int       SYS_CLK_SRSTS_EXTRA_CLOCKS [0:NUM_SYS_CLK_SRSTS-1] = {NUM_SYS_CLK_SRSTS{1'b0}},   // use this to specify how many extra system clocks to hold each system clock synchronous reset after the FPGA external reset (from pin) is released.  This allows different modules to be brought out of reset at different times.
+    parameter int       SYS_CLK_SRSTS_EXTRA_CLOCKS [0:NUM_SYS_CLK_SRSTS-1] = '{NUM_SYS_CLK_SRSTS{32'sd0}},   // use this to specify how many extra system clocks to hold each system clock synchronous reset after the FPGA external reset (from pin) is released.  This allows different modules to be brought out of reset at different times.
     parameter int       NUM_MIB_CLK_SRSTS                                  = 1,      // same as NUM_SYS_CLK_SRSTS, but for MIB bus clock domain (probably will only ever need 1).
-    parameter int       MIB_CLK_SRSTS_EXTRA_CLOCKS [0:NUM_MIB_CLK_SRSTS-1] = {NUM_SYS_CLK_SRSTS{1'b0}}, // same as SYS_CLK_SRSTS_EXTRA_CLOCKS, but for MIB bus clock domain (probably won't ever need to change from default).
+    parameter int       MIB_CLK_SRSTS_EXTRA_CLOCKS [0:NUM_MIB_CLK_SRSTS-1] = '{NUM_MIB_CLK_SRSTS{32'sd0}}, // same as SYS_CLK_SRSTS_EXTRA_CLOCKS, but for MIB bus clock domain (probably won't ever need to change from default).
     parameter int       INT_OSC_DIV_VAL                                    = 12,     // Divider value for Lattice FPGA internal oscillator (12 results in a 25.8MHz +/- 20% clock, see Lattice Documentation for more detail)
     parameter int       NUM_INT_OSC_SRST_CLOCKS                            = 128,    // number of internal oscillator clock cycles to assert o_int_osc_clk_srst for after FPGA configuration
     parameter bit [3:0] MIB_SLAVE_ADDR_MSN                                 = 4'h0,   // Set this to the MIB Most-Significant-Nibble used to uniquely identify the FPGA this module is in on the MIB bus

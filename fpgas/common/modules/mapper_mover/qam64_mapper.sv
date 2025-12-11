@@ -88,6 +88,7 @@ module qam64_mapper
    always @(*) begin
       t_mem_data = 0;
       t_mem_we = 0;
+      t_mem_addr = 0;
       n_raw_data = q_raw_data;
       n_rem = q_rem;
       n_cnt = q_cnt;
