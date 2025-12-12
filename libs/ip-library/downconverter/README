@@ -3,12 +3,19 @@ Digital Downconverter
 
 Overview: This block converts a signal at a -39 MHz IF to baseband. The
 downconverter demodulates the input to recenter the IF frequency at DC,
-then the signal goes through 3 halfband FIR filters. Each one decimates
-the input by 2, so the output signal is 8x decimated compared to the
-input signal. The input is a real-valued signal operating at twice
-the clock frequency (two samples are received at a time). If these two
-samples come in on every clock cycle, then an output sample is available
-every fourth clock cycle.
+then applies a `RATIO`-selected halfband decimation cascade. Legal values
+are 2, 4, 8, and 16; the default is 8. The baseband output rate is the ADC
+sample rate divided by `RATIO`. The input is a real-valued signal operating
+at twice the clock frequency (two samples are received at a time).
+
+Halfband cascade by `RATIO`:
+- `RATIO=2`: 1 decimation stage (`ddc_hb_decim_firx2_h0`)
+- `RATIO=4`: 2 decimation stages (`ddc_hb_decim_firx2_h0`, `ddc_hb_decim_fir_h1`)
+- `RATIO=8`: 3 decimation stages (`ddc_hb_decim_firx2_h0`, `ddc_hb_decim_fir_h1`, `ddc_hb_decim_fir_h2`)
+- `RATIO=16`: 4 decimation stages (`ddc_hb_decim_firx2_h0`, `ddc_hb_decim_fir_h1`, `ddc_hb_decim_fir_h2`, `ddc_hb_decim_fir_h3`)
+
+If valid input pairs arrive every clock cycle, an output sample is available
+every `RATIO/2` clock cycles.
 
 This iteration of the downconverter consists of a table look-up for the
 sine/cosine values needed, multipliers to bring the input samples to
@@ -56,6 +63,3 @@ To correctly infer this, the file "ddc_sincos.mif" must be added to the
 directory where the synthesizer is run. If not, then the block RAM will
 not be initialized correctly, and the output will be held at a zero
 value.
-
-Designer: Daryl (daryl@siglabs.com)
-Date: 2/22/2017

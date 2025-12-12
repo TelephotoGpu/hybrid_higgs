@@ -4,6 +4,7 @@
 
 module upconverter #(
     parameter integer WIDTH       = 16,
+    parameter integer RATIO       = 4,
     parameter bit     INTERP_ONLY = 1'b0 // set to 1 to bypass the DDS and just perform interpolation
 ) (
     input  wire logic [WIDTH-1:0] i_inph_data,
@@ -20,7 +21,8 @@ logic signed [WIDTH-1:0] cascade_inph_reg_n1;
 logic signed [WIDTH-1:0] cascade_quad_reg_n1;
 
 duc_hb_cascade #(
-    .WIDTH(WIDTH))
+    .WIDTH(WIDTH),
+    .RATIO(RATIO))
 duc_hb_cascade_inst (
     .i_inph_data(i_inph_data        ),
     .i_quad_data(i_quad_data        ),

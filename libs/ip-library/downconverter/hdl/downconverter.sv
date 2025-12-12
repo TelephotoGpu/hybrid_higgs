@@ -3,7 +3,8 @@
 `default_nettype none
 
 module downconverter #(
-    parameter integer WIDTH = 16
+    parameter integer WIDTH = 16,
+    parameter integer RATIO = 8
 ) (
     input  wire logic [WIDTH-1:0] i_inph_data,
     input  wire logic [WIDTH-1:0] i_inph_delay_data,
@@ -166,7 +167,8 @@ always_ff @(posedge i_clock) begin
 end
 
 ddc_hb_cascade #(
-    .WIDTH(WIDTH))
+    .WIDTH(WIDTH),
+    .RATIO(RATIO))
 ddc_hb_cascade_inst (
     .i_inph_data      (inph_data_reg3      ),
     .i_quad_data      (quad_data_reg3      ),
