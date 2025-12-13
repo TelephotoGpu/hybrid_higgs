@@ -9,18 +9,18 @@ module tb_vmem_dat_arb_parity;
   logic return_valid;
   logic return_ready;
   logic [3:0] return_slice;
-  logic [1:0] return_dma;
+  logic [2:0] return_dma;
   logic [31:0] return_data;
   logic order_valid;
   logic order_ready;
-  logic [1:0] order_dma;
+  logic [2:0] order_dma;
   logic [3:0] order_slice;
-  logic [3:0] out_valid;
-  logic [3:0] out_ready;
-  logic [127:0] out_data;
+  logic [5:0] out_valid;
+  logic [5:0] out_ready;
+  logic [191:0] out_data;
 
-  int order_q[4][$];
-  logic [31:0] data_q[4][16][$];
+  int order_q[6][$];
+  logic [31:0] data_q[6][16][$];
   int order_index;
   int return_index;
   int completed;
@@ -36,7 +36,7 @@ module tb_vmem_dat_arb_parity;
   endfunction
 
   function automatic int tx_dma(input int index);
-    return (index * 3 + 1) & 3;
+    return (index * 3 + 1) % 6;
   endfunction
 
   function automatic int tx_slice(input int index);
@@ -59,7 +59,7 @@ module tb_vmem_dat_arb_parity;
   endtask
 
   task automatic check_outputs();
-    for (int dma = 0; dma < 4; dma++) begin
+    for (int dma = 0; dma < 6; dma++) begin
       bit expected_valid;
       logic [31:0] expected_data;
       expected_valid = order_q[dma].size() != 0
@@ -79,7 +79,7 @@ module tb_vmem_dat_arb_parity;
     if (!$value$plusargs("TRACE=%s", trace_path))
       trace_path = "trace.csv";
     fd = $fopen(trace_path, "w");
-    $fdisplay(fd, "cycle,resetn,order_valid,order_ready,order_dma,order_slice,return_valid,return_ready,return_dma,return_slice,return_data,out_ready,out_valid,out0,out1,out2,out3");
+    $fdisplay(fd, "cycle,resetn,order_valid,order_ready,order_dma,order_slice,return_valid,return_ready,return_dma,return_slice,return_data,out_ready,out_valid,out0,out1,out2,out3,out4,out5");
 
     resetn = 0;
     return_valid = 0;
@@ -96,7 +96,7 @@ module tb_vmem_dat_arb_parity;
 
     while (completed < TRANSACTIONS) begin
       logic [31:0] random_bits;
-      logic [3:0] output_fire;
+      logic [5:0] output_fire;
       bit order_fire;
       bit return_fire;
       random_bits = next_lfsr();
@@ -114,7 +114,7 @@ module tb_vmem_dat_arb_parity;
         return_data = tx_data(return_index);
       end
 
-      out_ready = random_bits[5:2];
+      out_ready = random_bits[7:2];
       #1;
       check_outputs();
       output_fire = out_valid & out_ready;
@@ -135,7 +135,7 @@ module tb_vmem_dat_arb_parity;
         return_valid = 0;
       end
 
-      for (int dma = 0; dma < 4; dma++) begin
+      for (int dma = 0; dma < 6; dma++) begin
         if (output_fire[dma]) begin
           void'(data_q[dma][order_q[dma][0]].pop_front());
           void'(order_q[dma].pop_front());
@@ -144,18 +144,19 @@ module tb_vmem_dat_arb_parity;
       end
       check_outputs();
 
-      $fdisplay(fd, "%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0h,%0h,%0h,%0h,%0h,%0h",
+      $fdisplay(fd, "%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0h,%0h,%0h,%0h,%0h,%0h,%0h,%0h",
                 cycle, resetn, order_valid, order_ready, order_dma, order_slice,
                 return_valid, return_ready, return_dma, return_slice, return_data,
                 out_ready, out_valid, out_data[31:0], out_data[63:32],
-                out_data[95:64], out_data[127:96]);
+                out_data[95:64], out_data[127:96],
+                out_data[159:128], out_data[191:160]);
 
       if (cycle > 20000)
         $fatal(1, "timeout");
     end
 
     repeat (4) begin
-      out_ready = 4'hf;
+      out_ready = 6'h3f;
       @(posedge clk);
       #1;
       cycle++;
@@ -165,7 +166,7 @@ module tb_vmem_dat_arb_parity;
     $fclose(fd);
     if (errors != 0)
       $fatal(1, "FAIL: %0d VMEM arbiter mismatches", errors);
-    $display("PASS: VMEM arbiter preserved 512 ordered transactions under independent input and output stalls");
+    $display("PASS: VMEM arbiter preserved 512 ordered transactions across six DMA ports under independent input and output stalls");
     $finish;
   end
 endmodule

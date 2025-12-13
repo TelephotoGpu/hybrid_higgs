@@ -255,6 +255,9 @@ XSIM_DEFINES=\
 
 XSIM_INCLUDES=$(patsubst -I%,-i %,$(VER_INCLUDE_DIRS))
 
+# Extra xelab arguments, e.g. `-L xpm` for tests that build Xilinx IP.
+XSIM_ELAB_FLAGS ?=
+
 XSIM_TB=tb_higgs_top_xsim.sv
 XSIM_TOP=tb_higgs_top_xsim
 
@@ -334,7 +337,7 @@ xsim_elab: xsim_compile
 	# No --debug: this is a batch $display-only smoke test (no waveform/
 	# breakpoint needs), and "-debug typical" pulls in wave/driver tracing
 	# infrastructure that made a ~700k-cycle run enormously slower.
-	xelab --timescale 1ns/1ps -s $(XSIM_TOP) work.$(XSIM_TOP)
+	xelab --timescale 1ns/1ps $(XSIM_ELAB_FLAGS) -s $(XSIM_TOP) work.$(XSIM_TOP)
 
 xsim_run: xsim_elab
 	command -v xsim >/dev/null

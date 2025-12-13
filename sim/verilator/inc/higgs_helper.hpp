@@ -1978,6 +1978,13 @@ void handleMonitorRbDrop() {
 
   std::vector<uint32_t> readVmem(const std::string f, const unsigned start_dma, const unsigned length) {
 
+    // The Xilinx VMEM (vmem_dat_6_5_1_1) has no public memory_slice, so
+    // Verilator flattens piston and there is no path to peek at VMEM.
+    #ifdef HIGGS_TB_NO_VMEM_READ
+    (void)start_dma;
+    (void)length;
+    throw std::invalid_argument( std::string("readVmem() is unavailable in this build: ")+f );
+    #else
 
     //////////////////////////////  TX  //////////////////////////////
     #ifdef TB_USE_CS11
@@ -2061,6 +2068,7 @@ void handleMonitorRbDrop() {
     }
 
     throw std::invalid_argument( std::string("readVmem() did not find fpga: ")+f );
+    #endif
     return {};
 }
 

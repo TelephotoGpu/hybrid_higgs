@@ -5,6 +5,8 @@
 #define CSR_DMA_0_BASE (0xB08)
 #define CSR_DMA_1_BASE (0xB18)
 #define CSR_DMA_2_BASE (0xB28)
+#define CSR_DMA_3_BASE (0xB48)
+#define CSR_DMA_4_BASE (0xB58)
 #define CSR_TIMER_BASE (0xE00)
 #define CSR_RINGBUS_BASE (0xE10)
 #define CSR_RINGBUS_2_BASE (0xE30)
@@ -63,6 +65,36 @@
 #define DMA_2_MCAUSE              (0xB)
 #define DMA_2_ENABLE_BIT          (0x80000)
 #define DMA_2_SCHEDULE_DEPTH      (4)
+
+// DMA_3/DMA_4 exist only in Xilinx builds with the FIR (see doc/add-fir).
+// They raise no CPU interrupt; poll OCCUPANCY/STATUS. LAST_RTL sets `last`
+// on the final word of the next DMA_3 schedule and is cleared by each push.
+// output DMA to fir_filter (dma_out_last): VMEM -> FIR
+#define DMA_3_START_ADDR          (CSR_DMA_3_BASE + 0)
+#define DMA_3_LENGTH              (CSR_DMA_3_BASE + 1)
+#define DMA_3_TIMER_VAL           (CSR_DMA_3_BASE + 2)
+#define DMA_3_PUSH_SCHEDULE       (CSR_DMA_3_BASE + 3)
+#define DMA_3_STATUS              (CSR_DMA_3_BASE + 4)
+#define DMA_3_SCHEDULE_OCCUPANCY  (CSR_DMA_3_BASE + 5)
+#define DMA_3_FLUSH_SCHEDULE      (CSR_DMA_3_BASE + 6)
+#define DMA_3_INTERRUPT_CLEAR     (CSR_DMA_3_BASE + 7)
+#define DMA_3_REVERSE             (CSR_DMA_3_BASE + 9)
+#define DMA_3_LAST_RTL            (CSR_DMA_3_BASE + 10)
+#define DMA_3_STATUS_BUSY         (0x1)
+#define DMA_3_SCHEDULE_DEPTH      (16)
+
+// input DMA from fir_filter (dma_in): FIR -> VMEM
+#define DMA_4_START_ADDR          (CSR_DMA_4_BASE + 0)
+#define DMA_4_LENGTH              (CSR_DMA_4_BASE + 1)
+#define DMA_4_TIMER_VAL           (CSR_DMA_4_BASE + 2)
+#define DMA_4_PUSH_SCHEDULE       (CSR_DMA_4_BASE + 3)
+#define DMA_4_STATUS              (CSR_DMA_4_BASE + 4)
+#define DMA_4_SCHEDULE_OCCUPANCY  (CSR_DMA_4_BASE + 5)
+#define DMA_4_FLUSH_SCHEDULE      (CSR_DMA_4_BASE + 6)
+#define DMA_4_INTERRUPT_CLEAR     (CSR_DMA_4_BASE + 7)
+#define DMA_4_REVERSE             (CSR_DMA_4_BASE + 9)
+#define DMA_4_LAST_RTL            (CSR_DMA_4_BASE + 10)
+#define DMA_4_SCHEDULE_DEPTH      (16)
 
 #define NCO_START_ANGLE           (CSR_NCO_BASE + 0)
 #define NCO_LENGTH                (CSR_NCO_BASE + 1)

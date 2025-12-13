@@ -6,18 +6,18 @@ module vmem_dat_arb_test_top (
     input wire return_valid,
     output wire return_ready,
     input wire [3:0] return_slice,
-    input wire [1:0] return_dma,
+    input wire [2:0] return_dma,
     input wire [31:0] return_data,
     input wire order_valid,
     output wire order_ready,
-    input wire [1:0] order_dma,
+    input wire [2:0] order_dma,
     input wire [3:0] order_slice,
-    output wire [3:0] out_valid,
-    input wire [3:0] out_ready,
-    output wire [127:0] out_data
+    output wire [5:0] out_valid,
+    input wire [5:0] out_ready,
+    output wire [191:0] out_data
 );
     wire [15:0] in_ready;
-    wire [3:0] dma_order_ready;
+    wire [5:0] dma_order_ready;
 
     assign return_ready = in_ready[return_slice];
     assign order_ready = dma_order_ready[order_dma];
@@ -83,6 +83,12 @@ module vmem_dat_arb_test_top (
         .io_dma_order_3_valid(order_valid && order_dma == 3),
         .io_dma_order_3_ready(dma_order_ready[3]),
         .io_dma_order_3_payload(order_slice),
+        .io_dma_order_4_valid(order_valid && order_dma == 4),
+        .io_dma_order_4_ready(dma_order_ready[4]),
+        .io_dma_order_4_payload(order_slice),
+        .io_dma_order_5_valid(order_valid && order_dma == 5),
+        .io_dma_order_5_ready(dma_order_ready[5]),
+        .io_dma_order_5_payload(order_slice),
         .io_out_data_0_valid(out_valid[0]),
         .io_out_data_0_ready(out_ready[0]),
         .io_out_data_0_payload(out_data[31:0]),
@@ -95,6 +101,12 @@ module vmem_dat_arb_test_top (
         .io_out_data_3_valid(out_valid[3]),
         .io_out_data_3_ready(out_ready[3]),
         .io_out_data_3_payload(out_data[127:96]),
+        .io_out_data_4_valid(out_valid[4]),
+        .io_out_data_4_ready(out_ready[4]),
+        .io_out_data_4_payload(out_data[159:128]),
+        .io_out_data_5_valid(out_valid[5]),
+        .io_out_data_5_ready(out_ready[5]),
+        .io_out_data_5_payload(out_data[191:160]),
         .clk(clk),
         .resetn(resetn)
     );

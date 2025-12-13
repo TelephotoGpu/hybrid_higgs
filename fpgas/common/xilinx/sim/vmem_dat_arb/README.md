@@ -2,7 +2,7 @@
 
 This harness verifies the generated `VmemDatArbOut1_1` used by the Xilinx
 `vmem_dat_6_5_1_1` overlay. It independently varies order reservations,
-memory-return timing, per-slice buffering, and all four DMA output ready
+memory-return timing, per-slice buffering, and all six DMA output ready
 signals. A transaction scoreboard checks output routing, ordering, payload
 stability, loss, and duplication for 512 deterministic transactions.
 

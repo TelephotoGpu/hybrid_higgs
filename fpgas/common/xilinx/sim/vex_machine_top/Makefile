@@ -76,6 +76,8 @@ SOURCES := \
 	$(Q_ENGINE)/hdl/slicer.v \
 	$(Q_ENGINE)/hdl/dma/dma_in.v \
 	$(Q_ENGINE)/hdl/dma/dma_out.v \
+	$(Q_ENGINE)/hdl/dma/dma_out_last.v \
+	$(Q_ENGINE)/hdl/fir/fir_filter.v \
 	$(Q_ENGINE)/hdl/dma/dma_in_dummy.v \
 	$(Q_ENGINE)/hdl/nco/nco_gen.v \
 	$(GEN)/nco.v \

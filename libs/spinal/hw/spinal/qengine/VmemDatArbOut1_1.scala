@@ -8,7 +8,7 @@ import spinal.lib._
 // How many slices in?
 // Width of data?
 // What is the latency of the parent module such that we need to store order for this long
-case class VmemDatArbOut1_1(DMA: Int = 4, SLICE: Int = 16, W: Int = 32, UPLATENCY: Int = 32) extends Component {
+case class VmemDatArbOut1_1(DMA: Int = 6, SLICE: Int = 16, W: Int = 32, UPLATENCY: Int = 32) extends Component {
   // dump params
   println(s"DMA = $DMA")
   println(s"SLICE = $SLICE")

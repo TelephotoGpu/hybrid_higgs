@@ -191,6 +191,30 @@ module q_engine
    wire                      dma_2_interrupt;
    wire                      dma_2_interrupt_clear;
 
+   wire                      dma_3_config_valid;
+   wire                      dma_3_config_ready;
+   wire [31:0]               dma_3_config_payload_startAddr;
+   wire [31:0]               dma_3_config_payload_length;
+   wire [31:0]               dma_3_config_payload_timerInit;
+   wire                      dma_3_config_payload_reverse;
+   wire                      dma_3_config_payload_last_or_run_till_last;
+   wire                      dma_3_dmaReset;
+   wire [31:0]               dma_3_status;
+   wire                      dma_3_interrupt;
+   wire                      dma_3_interrupt_clear;
+
+   wire                      dma_4_config_valid;
+   wire                      dma_4_config_ready;
+   wire [31:0]               dma_4_config_payload_startAddr;
+   wire [31:0]               dma_4_config_payload_length;
+   wire [31:0]               dma_4_config_payload_timerInit;
+   wire                      dma_4_config_payload_reverse;
+   wire                      dma_4_config_payload_last_or_run_till_last;
+   wire                      dma_4_dmaReset;
+   wire [31:0]               dma_4_status;
+   wire                      dma_4_interrupt;
+   wire                      dma_4_interrupt_clear;
+
 
    reg                       timerInterrupt;
    reg                       debug_bus_cmd_valid;
@@ -367,6 +391,28 @@ module q_engine
          .dma_2_config_payload_timerInit(dma_2_config_payload_timerInit),
          .dma_2_config_payload_reverse(dma_2_config_payload_reverse),
          .dma_2_config_payload_last_or_run_till_last(dma_2_config_payload_last_or_run_till_last),
+
+         .dma_3_dmaReset(dma_3_dmaReset),
+         .dma_3_status(dma_3_status),
+         .dma_3_interrupt_clear(dma_3_interrupt_clear),
+         .dma_3_config_valid(dma_3_config_valid),
+         .dma_3_config_ready(dma_3_config_ready),
+         .dma_3_config_payload_startAddr(dma_3_config_payload_startAddr),
+         .dma_3_config_payload_length(dma_3_config_payload_length),
+         .dma_3_config_payload_timerInit(dma_3_config_payload_timerInit),
+         .dma_3_config_payload_reverse(dma_3_config_payload_reverse),
+         .dma_3_config_payload_last_or_run_till_last(dma_3_config_payload_last_or_run_till_last),
+
+         .dma_4_dmaReset(dma_4_dmaReset),
+         .dma_4_status(dma_4_status),
+         .dma_4_interrupt_clear(dma_4_interrupt_clear),
+         .dma_4_config_valid(dma_4_config_valid),
+         .dma_4_config_ready(dma_4_config_ready),
+         .dma_4_config_payload_startAddr(dma_4_config_payload_startAddr),
+         .dma_4_config_payload_length(dma_4_config_payload_length),
+         .dma_4_config_payload_timerInit(dma_4_config_payload_timerInit),
+         .dma_4_config_payload_reverse(dma_4_config_payload_reverse),
+         .dma_4_config_payload_last_or_run_till_last(dma_4_config_payload_last_or_run_till_last),
          
          .io_timerStatus_gtimer(timerCsr_gtimer),
          
@@ -654,6 +700,121 @@ module q_engine
 
 `endif
 
+   // FIR filter: DMA_3 streams VMEM -> fir_filter (piston DMA port 4, reads),
+   // DMA_4 streams fir_filter -> VMEM (piston DMA port 5, writes). Ports 4/5
+   // exist only on the Xilinx 6-DMA VMEM; elsewhere the CSRs are tied off.
+   wire [31:0]           i0_dma_firrd_addr;
+   wire                  i0_dma_firrd_valid;
+   wire                  i0_dma_firrd_ready;
+   wire [31:0]           t0_dma_firrd_data;
+   wire                  t0_dma_firrd_valid;
+   wire                  t0_dma_firrd_ready;
+   wire [31:0]           i0_dma_firwr_addr;
+   wire [31:0]           i0_dma_firwr_data;
+   wire                  i0_dma_firwr_valid;
+   wire                  i0_dma_firwr_ready;
+
+`ifdef HIGGS_FPGA_XILINX
+`ifndef NO_FIR
+   `define Q_ENGINE_HAS_FIR
+`endif
+`endif
+
+`ifdef Q_ENGINE_HAS_FIR
+   wire [31:0]           i_firfeed_data;
+   wire                  i_firfeed_last;
+   wire                  i_firfeed_valid;
+   wire                  i_firfeed_ready;
+   wire [31:0]           i_fir_data;
+   wire                  i_fir_last;
+   wire                  i_fir_valid;
+   wire                  i_fir_ready;
+   wire [2:0]            fir_err;
+
+   dma_out_last dma_out_3
+     (.clk(clk),
+      .srst(srst),
+      .ctimer(timerCsr_gtimer),
+      .config_valid(dma_3_config_valid),
+      .config_ready(dma_3_config_ready),
+      .config_payload_startAddr(dma_3_config_payload_startAddr),
+      .config_payload_length(dma_3_config_payload_length),
+      .config_payload_timerInit(dma_3_config_payload_timerInit),
+      .config_payload_reverse(dma_3_config_payload_reverse),
+      .config_payload_last(dma_3_config_payload_last_or_run_till_last),
+      .dmaReset(dma_3_dmaReset),
+      .status(dma_3_status),
+      .strobe_complete(),
+      .interrupt(dma_3_interrupt),
+      .interrupt_clear(dma_3_interrupt_clear),
+      .t0_data(t0_dma_firrd_data),
+      .t0_valid(t0_dma_firrd_valid),
+      .t0_ready(t0_dma_firrd_ready),
+      .i0_addr(i0_dma_firrd_addr),
+      .i0_valid(i0_dma_firrd_valid),
+      .i0_ready(i0_dma_firrd_ready),
+      .i1_data(i_firfeed_data),
+      .i1_last(i_firfeed_last),
+      .i1_valid(i_firfeed_valid),
+      .i1_ready(i_firfeed_ready)
+      );
+
+   fir_filter #(.NTAPS(16)) fir_filter_inst
+     (.clk(clk),
+      .srst(srst),
+      .t_data(i_firfeed_data),
+      .t_last(i_firfeed_last),
+      .t_valid(i_firfeed_valid),
+      .t_ready(i_firfeed_ready),
+      .i_data(i_fir_data),
+      .i_last(i_fir_last),
+      .i_valid(i_fir_valid),
+      .i_ready(i_fir_ready),
+      .err(fir_err),
+      .err_clear(1'b0)
+      );
+
+   dma_in dma_in_4
+     (.clk(clk),
+      .srst(srst),
+      .config_valid(dma_4_config_valid),
+      .config_ready(dma_4_config_ready),
+      .config_payload_startAddr(dma_4_config_payload_startAddr),
+      .config_payload_length(dma_4_config_payload_length),
+      .config_payload_timerInit(dma_4_config_payload_timerInit),
+      .config_payload_reverse(dma_4_config_payload_reverse),
+      .config_payload_run_till_last(1'b0),
+      .dmaReset(dma_4_dmaReset),
+      .ctimer(timerCsr_gtimer),
+      .t0_data(i_fir_data),
+      .t0_last(i_fir_last),
+      .t0_valid(i_fir_valid),
+      .t0_ready(i_fir_ready),
+      .i0_addr(i0_dma_firwr_addr),
+      .i0_data(i0_dma_firwr_data),
+      .i0_valid(i0_dma_firwr_valid),
+      .i0_ready(i0_dma_firwr_ready),
+      .status(dma_4_status),
+      .strobe_complete(),
+      .interrupt(dma_4_interrupt),
+      .interrupt_clear(dma_4_interrupt_clear)
+      );
+`else
+   assign dma_3_config_ready = 1'b1;
+   assign dma_3_status = 32'h0;
+   assign dma_3_interrupt = 1'b0;
+   assign dma_4_config_ready = 1'b1;
+   assign dma_4_status = 32'h0;
+   assign dma_4_interrupt = 1'b0;
+   assign i0_dma_firrd_addr = 32'h0;
+   assign i0_dma_firrd_valid = 1'b0;
+   assign t0_dma_firrd_ready = 1'b1;
+   assign i0_dma_firwr_addr = 32'h0;
+   assign i0_dma_firwr_data = 32'h0;
+   assign i0_dma_firwr_valid = 1'b0;
+`endif
+`undef Q_ENGINE_HAS_FIR
+
 
    wire [3*32-1:0]       t_piston_payload_data;
    wire [3*16-1:0]       t_piston_payload_addr;
@@ -744,6 +905,20 @@ module q_engine
       .i_odma_3_dat(),
       .i_odma_3_req(),
       .i_odma_3_ack(1'b1),
+`ifdef HIGGS_FPGA_XILINX
+      .t_idma_4_dat({1'b0,i0_dma_firrd_addr[15:0],32'b0}),
+      .t_idma_4_req(i0_dma_firrd_valid),
+      .t_idma_4_ack(i0_dma_firrd_ready),
+      .t_idma_5_dat({1'b1,i0_dma_firwr_addr[15:0],i0_dma_firwr_data}),
+      .t_idma_5_req(i0_dma_firwr_valid),
+      .t_idma_5_ack(i0_dma_firwr_ready),
+      .i_odma_4_dat(t0_dma_firrd_data),
+      .i_odma_4_req(t0_dma_firrd_valid),
+      .i_odma_4_ack(t0_dma_firrd_ready),
+      .i_odma_5_dat(),
+      .i_odma_5_req(),
+      .i_odma_5_ack(1'b1),
+`endif
       .clk(clk),
       .reset_n(~srst)
       );

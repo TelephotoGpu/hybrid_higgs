@@ -63,6 +63,23 @@ module piston #(
     output      [31:0] i_odma_3_dat,
     output             i_odma_3_req,
     input              i_odma_3_ack
+`ifdef HIGGS_FPGA_XILINX
+    // DMA ports 4/5 exist only on the 6-DMA Xilinx VMEM (vmem_dat_6_5_1_1).
+    // They bypass the generated piston_ctrl network; each has its own eb15.
+    ,
+    input       [48:0] t_idma_4_dat,
+    input              t_idma_4_req,
+    output             t_idma_4_ack,
+    input       [48:0] t_idma_5_dat,
+    input              t_idma_5_req,
+    output             t_idma_5_ack,
+    output      [31:0] i_odma_4_dat,
+    output             i_odma_4_req,
+    input              i_odma_4_ack,
+    output      [31:0] i_odma_5_dat,
+    output             i_odma_5_req,
+    input              i_odma_5_ack
+`endif
 );
 // per edge
 wire      [63:0] dat0, dat0_nxt;
@@ -627,6 +644,27 @@ wire             ivs_valid28;
 wire             ivs_ready28;
 wire       [3:0] k_ctrl28;
 `ifdef HIGGS_FPGA_XILINX
+wire      [48:0] dat_idma_4, dat_idma_5;
+wire      [31:0] dat_odma_4, dat_odma_5;
+wire       [1:0] idma_valid28_x, idma_ready28_x, odma_valid28_x, odma_ready28_x;
+
+eb15 #(.DWIDTH(49)) ueb_idma_4 (
+    .t_data(t_idma_4_dat), .t_valid(t_idma_4_req), .t_ready(t_idma_4_ack),
+    .i_data(dat_idma_4), .i_valid(idma_valid28_x[0]), .i_ready(idma_ready28_x[0]),
+    .clk(clk), .rstf(reset_n));
+eb15 #(.DWIDTH(49)) ueb_idma_5 (
+    .t_data(t_idma_5_dat), .t_valid(t_idma_5_req), .t_ready(t_idma_5_ack),
+    .i_data(dat_idma_5), .i_valid(idma_valid28_x[1]), .i_ready(idma_ready28_x[1]),
+    .clk(clk), .rstf(reset_n));
+eb15 #(.DWIDTH(32)) ueb_odma_4 (
+    .t_data(dat_odma_4), .t_valid(odma_valid28_x[0]), .t_ready(odma_ready28_x[0]),
+    .i_data(i_odma_4_dat), .i_valid(i_odma_4_req), .i_ready(i_odma_4_ack),
+    .clk(clk), .rstf(reset_n));
+eb15 #(.DWIDTH(32)) ueb_odma_5 (
+    .t_data(dat_odma_5), .t_valid(odma_valid28_x[1]), .t_ready(odma_ready28_x[1]),
+    .i_data(i_odma_5_dat), .i_valid(i_odma_5_req), .i_ready(i_odma_5_ack),
+    .clk(clk), .rstf(reset_n));
+
 vmem_dat_6_5_1_1 #(
 `else
 vmem_dat_6_5 #(
@@ -671,15 +709,28 @@ vmem_dat_6_5 #(
     .t_idma_1_dat(dat351),
     .t_idma_2_dat(dat352),
     .t_idma_3_dat(dat353),
+`ifdef HIGGS_FPGA_XILINX
+    .t_idma_4_dat(dat_idma_4),
+    .t_idma_5_dat(dat_idma_5),
+    .i_odma_4_dat(dat_odma_4),
+    .i_odma_5_dat(dat_odma_5),
+`endif
     .i_ovs_dat(dat34),
     .i_odma_0_dat(dat354_nxt),
     .i_odma_1_dat(dat355_nxt),
     .i_odma_2_dat(dat357_nxt),
     .i_odma_3_dat(dat359_nxt),
+`ifdef HIGGS_FPGA_XILINX
+    .idma_valid({idma_valid28_x, idma_valid28}),
+    .idma_ready({idma_ready28_x, idma_ready28}),
+    .odma_valid({odma_valid28_x, odma_valid28}),
+    .odma_ready({odma_ready28_x, odma_ready28}),
+`else
     .idma_valid(idma_valid28),
     .idma_ready(idma_ready28),
     .odma_valid(odma_valid28),
     .odma_ready(odma_ready28),
+`endif
     .tvs_valid(tvs_valid28),
     .tvs_ready(tvs_ready28),
     .ivs_valid(ivs_valid28),

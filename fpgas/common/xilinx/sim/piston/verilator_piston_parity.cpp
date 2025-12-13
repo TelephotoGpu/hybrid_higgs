@@ -11,13 +11,14 @@
 static constexpr int kWritesPerDma = 32;
 static constexpr int kReadsPerDma = 128;
 static constexpr int kResetReadsPerDma = 8;
+static constexpr int kDmas = 6;
 
 static Vpiston_test_top *top;
 static FILE *trace_file;
-static std::array<int, 4> write_index{};
-static std::array<int, 4> reset_read_index{};
-static std::array<int, 4> read_index{};
-static std::array<std::deque<uint32_t>, 4> expected_q;
+static std::array<int, kDmas> write_index{};
+static std::array<int, kDmas> reset_read_index{};
+static std::array<int, kDmas> read_index{};
+static std::array<std::deque<uint32_t>, kDmas> expected_q;
 static uint32_t lfsr = 0x36a97c51u;
 static int completed;
 static int cycle_count;
@@ -42,13 +43,13 @@ static uint32_t write_data(int owner, int index) {
 }
 
 static uint16_t read_addr(int dma, int index) {
-  const int owner = (index * 3 + dma) & 3;
+  const int owner = (index * 3 + dma) % kDmas;
   const int write_slot = (index * 7 + dma * 11) % kWritesPerDma;
   return write_addr(owner, write_slot);
 }
 
 static uint32_t read_data(int dma, int index) {
-  const int owner = (index * 3 + dma) & 3;
+  const int owner = (index * 3 + dma) % kDmas;
   const int write_slot = (index * 7 + dma * 11) % kWritesPerDma;
   return write_data(owner, write_slot);
 }
@@ -63,7 +64,9 @@ static void set_input(int dma, uint64_t value) {
     case 0: top->in0 = value; break;
     case 1: top->in1 = value; break;
     case 2: top->in2 = value; break;
-    default: top->in3 = value; break;
+    case 3: top->in3 = value; break;
+    case 4: top->in4 = value; break;
+    default: top->in5 = value; break;
   }
 }
 
@@ -72,7 +75,9 @@ static uint64_t get_input(int dma) {
     case 0: return top->in0;
     case 1: return top->in1;
     case 2: return top->in2;
-    default: return top->in3;
+    case 3: return top->in3;
+    case 4: return top->in4;
+    default: return top->in5;
   }
 }
 
@@ -81,7 +86,9 @@ static uint32_t get_output(int dma) {
     case 0: return top->out0;
     case 1: return top->out1;
     case 2: return top->out2;
-    default: return top->out3;
+    case 3: return top->out3;
+    case 4: return top->out4;
+    default: return top->out5;
   }
 }
 
@@ -93,7 +100,7 @@ static void eval_cycle() {
 }
 
 static void check_outputs() {
-  for (int dma = 0; dma < 4; ++dma) {
+  for (int dma = 0; dma < kDmas; ++dma) {
     if ((top->out_valid >> dma) & 1) {
       if (expected_q[dma].empty()) {
         std::fprintf(stderr, "FAIL: dma%d unexpected response cycle=%d\n",
@@ -113,14 +120,16 @@ static void check_outputs() {
 
 static void log_cycle() {
   std::fprintf(trace_file,
-               "%d,%u,%x,%x,%llx,%llx,%llx,%llx,%x,%x,%x,%x,%x,%x\n",
+               "%d,%u,%x,%x,%llx,%llx,%llx,%llx,%llx,%llx,%x,%x,%x,%x,%x,%x,%x,%x\n",
                cycle_count, top->reset_n, top->in_valid, top->in_ready,
                static_cast<unsigned long long>(get_input(0)),
                static_cast<unsigned long long>(get_input(1)),
                static_cast<unsigned long long>(get_input(2)),
                static_cast<unsigned long long>(get_input(3)),
+               static_cast<unsigned long long>(get_input(4)),
+               static_cast<unsigned long long>(get_input(5)),
                top->out_ready, top->out_valid, get_output(0), get_output(1),
-               get_output(2), get_output(3));
+               get_output(2), get_output(3), get_output(4), get_output(5));
 }
 
 int main(int argc, char **argv) {
@@ -137,12 +146,12 @@ int main(int argc, char **argv) {
   if (!trace_file)
     return 2;
   std::fprintf(trace_file,
-               "cycle,resetn,in_valid,in_ready,in0,in1,in2,in3,out_ready,out_valid,out0,out1,out2,out3\n");
+               "cycle,resetn,in_valid,in_ready,in0,in1,in2,in3,in4,in5,out_ready,out_valid,out0,out1,out2,out3,out4,out5\n");
 
   top->reset_n = 0;
   top->in_valid = 0;
   top->out_ready = 0;
-  for (int dma = 0; dma < 4; ++dma)
+  for (int dma = 0; dma < kDmas; ++dma)
     set_input(dma, 0);
   for (int i = 0; i < 5; ++i)
     eval_cycle();
@@ -151,7 +160,7 @@ int main(int argc, char **argv) {
   bool all_done = false;
   while (!all_done) {
     const uint32_t random_bits = next_lfsr();
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if (!((top->in_valid >> dma) & 1)
           && write_index[dma] < kWritesPerDma
           && ((random_bits >> dma) & 1)) {
@@ -165,14 +174,14 @@ int main(int argc, char **argv) {
     const uint8_t input_fire = top->in_valid & top->in_ready;
     top->clk = 1;
     top->eval();
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if ((input_fire >> dma) & 1) {
         ++write_index[dma];
         top->in_valid &= ~(1u << dma);
       }
     }
     all_done = true;
-    for (int dma = 0; dma < 4; ++dma)
+    for (int dma = 0; dma < kDmas; ++dma)
       if (write_index[dma] != kWritesPerDma)
         all_done = false;
   }
@@ -183,7 +192,7 @@ int main(int argc, char **argv) {
 
   all_done = false;
   while (!all_done) {
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if (!((top->in_valid >> dma) & 1)
           && reset_read_index[dma] < kResetReadsPerDma) {
         set_input(dma, pack_request(false,
@@ -197,14 +206,14 @@ int main(int argc, char **argv) {
     const uint8_t input_fire = top->in_valid & top->in_ready;
     top->clk = 1;
     top->eval();
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if ((input_fire >> dma) & 1) {
         ++reset_read_index[dma];
         top->in_valid &= ~(1u << dma);
       }
     }
     all_done = true;
-    for (int dma = 0; dma < 4; ++dma)
+    for (int dma = 0; dma < kDmas; ++dma)
       if (reset_read_index[dma] != kResetReadsPerDma)
         all_done = false;
   }
@@ -228,9 +237,9 @@ int main(int argc, char **argv) {
   }
 
   cycle_count = 0;
-  while (completed < 4 * kReadsPerDma) {
+  while (completed < kDmas * kReadsPerDma) {
     const uint32_t random_bits = next_lfsr();
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if (!((top->in_valid >> dma) & 1)
           && read_index[dma] < kReadsPerDma
           && ((random_bits >> dma) & 1)) {
@@ -239,7 +248,7 @@ int main(int argc, char **argv) {
         top->in_valid |= 1u << dma;
       }
     }
-    top->out_ready = (random_bits >> 4) & 0xf;
+    top->out_ready = (random_bits >> kDmas) & 0x3f;
     top->clk = 0;
     top->eval();
     check_outputs();
@@ -249,7 +258,7 @@ int main(int argc, char **argv) {
     top->eval();
     ++cycle_count;
 
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < kDmas; ++dma) {
       if ((output_fire >> dma) & 1) {
         expected_q[dma].pop_front();
         ++completed;
@@ -268,7 +277,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  std::puts("PASS: piston preserved 512 ordered VMEM reads through its stalled external DMA interfaces");
+  std::puts("PASS: piston preserved 768 ordered VMEM reads across six through its stalled external DMA interfaces");
   std::fclose(trace_file);
   top->final();
   delete top;

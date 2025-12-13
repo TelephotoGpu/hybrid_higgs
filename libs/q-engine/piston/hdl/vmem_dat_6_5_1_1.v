@@ -37,10 +37,10 @@ module vmem_dat_6_5_1_1
   parameter S = 16,
 
   // how many DMA (template: inputs)
-  parameter D = 4,
+  parameter D = 6,
 
   // how many extra address bits, corresponding to log2(# of dma)
-  parameter EAB = 2,
+  parameter EAB = 3,
 
   // address width of incoming DMA (template: iAddrWidth)
   parameter AW = 16,
@@ -55,17 +55,21 @@ module vmem_dat_6_5_1_1
  input wire [48:0]   t_idma_1_dat,
  input wire [48:0]   t_idma_2_dat,
  input wire [48:0]   t_idma_3_dat,
+ input wire [48:0]   t_idma_4_dat,
+ input wire [48:0]   t_idma_5_dat,
 
- input wire [3:0]                          idma_valid,
- output wire [3:0]                         idma_ready,
+ input wire [5:0]                          idma_valid,
+ output wire [5:0]                         idma_ready,
 
  output wire [31:0]                    i_odma_0_dat,
  output wire [31:0]                    i_odma_1_dat,
  output wire [31:0]                    i_odma_2_dat,
  output wire [31:0]                    i_odma_3_dat,
+ output wire [31:0]                    i_odma_4_dat,
+ output wire [31:0]                    i_odma_5_dat,
 
- output wire [3:0]                         odma_valid,
- input wire [3:0]                          odma_ready,
+ output wire [5:0]                         odma_valid,
+ input wire [5:0]                          odma_ready,
 
 
  input wire [511:0]              t_ivs_dat,
@@ -141,24 +145,24 @@ reg         [31:0] arb_select_hex_0;
  wire        t1_mem_payload_ready[15:0];
 
  // Conflict detection matrix and ready signals
- reg [3:0]   n_ready_matrix[3:0];  // Matrix tracking conflicts between DMA channels
- reg         q_idma_ready[3:0];         // Consolidated ready per channel
- reg [3:0]   q_ready_matrix[3:0];  // Registered matrix
- reg         q_ready[3:0];         // Registered ready
- wire mem_bank_ready[3:0];
+ reg [DMO:0] n_ready_matrix[DMO:0];  // Matrix tracking conflicts between DMA channels
+ reg         q_idma_ready[DMO:0];         // Consolidated ready per channel
+ reg [DMO:0] q_ready_matrix[DMO:0];  // Registered matrix
+ reg         q_ready[DMO:0];         // Registered ready
+ wire mem_bank_ready[DMO:0];
 
  // Loop variables for generating logic
  reg [31:0]  ii,jj,i,j,banki,dmai,bankj;
  genvar eb_i;
 
  // Unpacked arrays for DMA interface
- wire [31:0] idma_data[3:0];    // Input DMA data REMOVEME
- wire [15:0] idma_addr[3:0];    // Input DMA address REMOVEME
- wire        idma_we[3:0];      // Input DMA write enable REMOVEME
- wire [31:0] q_idma_data[3:0];
- wire [15:0] q_idma_addr[3:0];
- wire        q_idma_we[3:0];
- wire        q_idma_valid[3:0];
+ wire [31:0] idma_data[DMO:0];    // Input DMA data REMOVEME
+ wire [15:0] idma_addr[DMO:0];    // Input DMA address REMOVEME
+ wire        idma_we[DMO:0];      // Input DMA write enable REMOVEME
+ wire [31:0] q_idma_data[DMO:0];
+ wire [15:0] q_idma_addr[DMO:0];
+ wire        q_idma_we[DMO:0];
+ wire        q_idma_valid[DMO:0];
 
 // debug: split signals out of the array for easier plotting in gtkwave
 `ifdef VERILATOR
@@ -213,11 +217,13 @@ reg         [31:0] arb_select_hex_0;
 `endif
 
 // Create packed array of t_idma signals
-wire [48:0] t_idma_dat [3:0];
+wire [48:0] t_idma_dat [DMO:0];
 assign t_idma_dat[0] = t_idma_0_dat;
 assign t_idma_dat[1] = t_idma_1_dat;
 assign t_idma_dat[2] = t_idma_2_dat;
 assign t_idma_dat[3] = t_idma_3_dat;
+assign t_idma_dat[4] = t_idma_4_dat;
+assign t_idma_dat[5] = t_idma_5_dat;
 
  // REMOVEME
  assign idma_addr[0]=t_idma_0_dat[47:32];
@@ -235,16 +241,22 @@ assign t_idma_dat[3] = t_idma_3_dat;
  assign idma_addr[3]=t_idma_3_dat[47:32];
  assign idma_data[3]=t_idma_3_dat[31:0];
  assign idma_we[3]=t_idma_3_dat[48];
+ assign idma_addr[4]=t_idma_4_dat[47:32];
+ assign idma_data[4]=t_idma_4_dat[31:0];
+ assign idma_we[4]=t_idma_4_dat[48];
+ assign idma_addr[5]=t_idma_5_dat[47:32];
+ assign idma_data[5]=t_idma_5_dat[31:0];
+ assign idma_we[5]=t_idma_5_dat[48];
 
- wire [48:0] eb_idma_t_data[3:0];
- wire eb_idma_t_valid[3:0];
- wire eb_idma_t_ready[3:0];
- wire [48:0] eb_idma_i_data[3:0];
- wire eb_idma_i_valid[3:0];
- wire eb_idma_i_ready[3:0];
+ wire [48:0] eb_idma_t_data[DMO:0];
+ wire eb_idma_t_valid[DMO:0];
+ wire eb_idma_t_ready[DMO:0];
+ wire [48:0] eb_idma_i_data[DMO:0];
+ wire eb_idma_i_valid[DMO:0];
+ wire eb_idma_i_ready[DMO:0];
 
  always @(posedge clk) begin
-    for(dmai=0;dmai<4;dmai = dmai + 1) begin
+    for(dmai=0;dmai<D;dmai = dmai + 1) begin
       //  q_idma_addr[dmai]<=idma_addr[dmai];
       //  q_idma_data[dmai]<=idma_data[dmai];
       //  q_idma_we[dmai]<=idma_we[dmai];
@@ -265,7 +277,7 @@ assign t_idma_dat[3] = t_idma_3_dat;
 // these are 1:1 with the DMA, any arbitration logic should
 // deal with the output of this
  generate
- for(eb_i=0; eb_i<4; eb_i=eb_i+1) begin : eb_gen_idma
+ for(eb_i=0; eb_i<D; eb_i=eb_i+1) begin : eb_gen_idma
      // we don't need to pack t_idma_dat, b/c the signals already come into the top as packed
      assign eb_idma_t_data[eb_i] = t_idma_dat[eb_i];
      assign eb_idma_t_valid[eb_i] = idma_valid[eb_i];
@@ -352,12 +364,12 @@ wire eb_t_ready_1 = eb_t_ready[1];
  genvar gbanki, gdmai;
 
  // Then declare the wire array
- wire [3:0] mem_select [15:0];  // [dma_channels][bank_number]
+ wire [DMO:0] mem_select [15:0];  // [dma_channels][bank_number]
 
  // Use generate block with genvar loop counters
  generate
    for(gbanki=0; gbanki<16; gbanki=gbanki+1) begin : bank_loop
-     for(gdmai=0; gdmai<4; gdmai=gdmai+1) begin : dma_loop
+     for(gdmai=0; gdmai<D; gdmai=gdmai+1) begin : dma_loop
        assign mem_select[gbanki][gdmai] = (q_idma_addr[gdmai][3:0]==gbanki && q_idma_ready[gdmai] && q_idma_valid[gdmai]);
      end
    end
@@ -365,20 +377,20 @@ wire eb_t_ready_1 = eb_t_ready[1];
 
 
 // Add order tracking signals to vmem_arb_out_inst
-reg [3:0] order_wr_en;
-wire [3:0] order_ready;
-reg [3:0] order_slice_index [3:0];
+reg [DMO:0] order_wr_en;
+wire [DMO:0] order_ready;
+reg [3:0] order_slice_index [DMO:0];
 
 // Add order tracking registers
-reg [3:0] order_wr_en_reg;
-reg [3:0] order_slice_index_reg [3:0];
+reg [DMO:0] order_wr_en_reg;
+reg [3:0] order_slice_index_reg [DMO:0];
 
   // Core arbitration logic
   always @(*) begin
      // For each DMA channel i
-     for(i=0;i<4;i = i + 1) begin
+     for(i=0;i<D;i = i + 1) begin
         // Check against every other channel j
-        for(j=0;j<4;j = j + 1) begin
+        for(j=0;j<D;j = j + 1) begin
            if(j<i)
              // If channel j is trying to access same bank as channel i
              // and channel j is valid, then i cannot proceed
@@ -420,8 +432,8 @@ reg [3:0] order_slice_index_reg [3:0];
      `endif
 
     // Clear order tracking signals
-    order_wr_en_reg = 4'b0;
-    for(i = 0; i < 4; i = i + 1) begin
+    order_wr_en_reg = {D{1'b0}};
+    for(i = 0; i < D; i = i + 1) begin
         order_slice_index_reg[i] = 4'b0;
     end
 
@@ -430,13 +442,13 @@ reg [3:0] order_slice_index_reg [3:0];
   // this looks to see if the next dma write matches a bank (by looking at lower 4 bits = 16 banks)
   // when mem_select is good, we connect the dma to the slice here
   for(banki=0;banki<16;banki= banki + 1) begin
-     for(dmai=0;dmai<4;dmai = dmai + 1) begin
+     for(dmai=0;dmai<D;dmai = dmai + 1) begin
         // If DMA channel dmai wants bank banki and is ready/valid
         // assign mem_select[banki][dmai] = (q_idma_addr[dmai][3:0]==banki && q_ready[dmai] && q_idma_valid[dmai]);
         if(mem_select[banki][dmai]) begin
              n_mem_valid[banki]=q_idma_valid[dmai];
              // load the bank that this read/write came from to the head of the address
-             n_mem_payload_addr[banki]={dmai[1:0], q_idma_addr[dmai][15:4]};
+             n_mem_payload_addr[banki]={dmai[EAB-1:0], q_idma_addr[dmai][15:4]};
              n_mem_payload_data[banki]=q_idma_data[dmai];
              n_mem_payload_we[banki]=q_idma_we[dmai];
 
@@ -468,13 +480,13 @@ reg [3:0] order_slice_index_reg [3:0];
 // Register the order tracking signals
 always @(posedge clk) begin
     if (!reset_n) begin
-        order_wr_en <= 4'b0;
-        for(i = 0; i < 4; i = i + 1) begin
+        order_wr_en <= {D{1'b0}};
+        for(i = 0; i < D; i = i + 1) begin
             order_slice_index[i] <= 4'b0;
         end
     end else begin
         order_wr_en <= order_wr_en_reg;
-        for(i = 0; i < 4; i = i + 1) begin
+        for(i = 0; i < D; i = i + 1) begin
             order_slice_index[i] <= order_slice_index_reg[i];
         end
     end
@@ -595,7 +607,7 @@ wire q_mem_ready_0 = q_mem_ready[0];
 
 // upper 2 bits of the address given to the slice, which actually encodes the DMA that it came in on
 // Must be an unpacked array
-wire [1:0] t1_mem_payload_addr_extra_array [15:0];
+wire [EAB-1:0] t1_mem_payload_addr_extra_array [15:0];
 
 genvar slicei;
 generate
@@ -604,17 +616,14 @@ generate
   end
 endgenerate
 
-wire [127:0] arb_odma_out;
+wire [D*32-1:0] arb_odma_out;
 
 // reads come into the 16 memory slices
 // when the read is ready, it comes out here
 // the top 2 bits of the read address encode which output DMA this is destined for
 // this arbiter routes all these reads out to the correct place
-`ifdef VMEM_DAT_ARB_OUT_1_1
+// The 6-DMA return path requires the generated SpinalHDL arbiter.
 vmem_dat_arb_out_spinal_wrapper
-`else
-vmem_dat_arb_out_1_0
-`endif
 vmem_arb_out_inst (
     .clk(clk),
     .rst_n(reset_n),
@@ -683,6 +692,7 @@ vmem_arb_out_inst (
     .order_wr_en(order_wr_en),
     .order_ready(order_ready),
     .order_slice_index({
+        order_slice_index[5], order_slice_index[4],
         order_slice_index[3], order_slice_index[2],
         order_slice_index[1], order_slice_index[0]
     }),
@@ -697,15 +707,14 @@ assign i_odma_0_dat = arb_odma_out[31:0];
 assign i_odma_1_dat = arb_odma_out[63:32];
 assign i_odma_2_dat = arb_odma_out[95:64];
 assign i_odma_3_dat = arb_odma_out[127:96];
+assign i_odma_4_dat = arb_odma_out[159:128];
+assign i_odma_5_dat = arb_odma_out[191:160];
 
 
 
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM0),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM0),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM0),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_0
 (.clk(clk),
  .reset_n(reset_n),
@@ -736,11 +745,8 @@ mem_slice_0
  .i1_ready(t1_mem_payload_ready[0])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM1),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM1),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM1),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_1
 (.clk(clk),
  .reset_n(reset_n),
@@ -771,11 +777,8 @@ mem_slice_1
  .i1_ready(t1_mem_payload_ready[1])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM2),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM2),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM2),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_2
 (.clk(clk),
  .reset_n(reset_n),
@@ -806,11 +809,8 @@ mem_slice_2
  .i1_ready(t1_mem_payload_ready[2])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM3),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM3),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM3),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_3
 (.clk(clk),
  .reset_n(reset_n),
@@ -841,11 +841,8 @@ mem_slice_3
  .i1_ready(t1_mem_payload_ready[3])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM4),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM4),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM4),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_4
 (.clk(clk),
  .reset_n(reset_n),
@@ -876,11 +873,8 @@ mem_slice_4
  .i1_ready(t1_mem_payload_ready[4])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM5),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM5),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM5),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_5
 (.clk(clk),
  .reset_n(reset_n),
@@ -911,11 +905,8 @@ mem_slice_5
  .i1_ready(t1_mem_payload_ready[5])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM6),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM6),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM6),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_6
 (.clk(clk),
  .reset_n(reset_n),
@@ -946,11 +937,8 @@ mem_slice_6
  .i1_ready(t1_mem_payload_ready[6])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM7),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM7),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM7),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_7
 (.clk(clk),
  .reset_n(reset_n),
@@ -981,11 +969,8 @@ mem_slice_7
  .i1_ready(t1_mem_payload_ready[7])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM8),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM8),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM8),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_8
 (.clk(clk),
  .reset_n(reset_n),
@@ -1016,11 +1001,8 @@ mem_slice_8
  .i1_ready(t1_mem_payload_ready[8])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM9),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM9),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM9),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_9
 (.clk(clk),
  .reset_n(reset_n),
@@ -1051,11 +1033,8 @@ mem_slice_9
  .i1_ready(t1_mem_payload_ready[9])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM10),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM10),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM10),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_10
 (.clk(clk),
  .reset_n(reset_n),
@@ -1086,11 +1065,8 @@ mem_slice_10
  .i1_ready(t1_mem_payload_ready[10])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM11),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM11),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM11),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_11
 (.clk(clk),
  .reset_n(reset_n),
@@ -1121,11 +1097,8 @@ mem_slice_11
  .i1_ready(t1_mem_payload_ready[11])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM12),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM12),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM12),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_12
 (.clk(clk),
  .reset_n(reset_n),
@@ -1156,11 +1129,8 @@ mem_slice_12
  .i1_ready(t1_mem_payload_ready[12])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM13),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM13),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM13),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_13
 (.clk(clk),
  .reset_n(reset_n),
@@ -1191,11 +1161,8 @@ mem_slice_13
  .i1_ready(t1_mem_payload_ready[13])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM14),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM14),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM14),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_14
 (.clk(clk),
  .reset_n(reset_n),
@@ -1226,11 +1193,8 @@ mem_slice_14
  .i1_ready(t1_mem_payload_ready[14])
  );
 
-`ifdef MEMORY_SLICE_1_1
-memory_slice_1_1 #(.MEMINIT(VMEM15),.DEPTH(VMEM_SIZE))
-`else
-memory_slice #(.MEMINIT(VMEM15),.DEPTH(VMEM_SIZE))
-`endif
+// 6 DMAs need the tagged slice (EAB tag bits above the 12-bit address)
+memory_slice_1_1 #(.MEMINIT(VMEM15),.DEPTH(VMEM_SIZE),.EAB1(EAB))
 mem_slice_15
 (.clk(clk),
  .reset_n(reset_n),

@@ -4,15 +4,16 @@ module tb_vmem_dat_6_5;
     localparam int WRITES_PER_DMA = 32;
     localparam int READS_PER_DMA = 128;
     localparam int RESET_READS_PER_DMA = 8;
+    localparam int ND = 6;
 
     logic clk = 0;
     logic reset_n = 0;
-    logic [48:0] t_idma [0:3];
-    logic [3:0] idma_valid = 0;
-    wire [3:0] idma_ready;
-    wire [31:0] i_odma [0:3];
-    wire [3:0] odma_valid;
-    logic [3:0] odma_ready = 0;
+    logic [48:0] t_idma [0:ND-1];
+    logic [ND-1:0] idma_valid = 0;
+    wire [ND-1:0] idma_ready;
+    wire [31:0] i_odma [0:ND-1];
+    wire [ND-1:0] odma_valid;
+    logic [ND-1:0] odma_ready = 0;
     logic [511:0] t_ivs_dat = 0;
     logic [195:0] t_ka_dat = 0;
     logic tvs_valid = 0;
@@ -22,10 +23,10 @@ module tb_vmem_dat_6_5;
     logic ivs_ready = 1;
     wire [3:0] k_ctrl;
 
-    int write_index [0:3];
-    int reset_read_index [0:3];
-    int read_index [0:3];
-    logic [31:0] expected_q [0:3][$];
+    int write_index [0:ND-1];
+    int reset_read_index [0:ND-1];
+    int read_index [0:ND-1];
+    logic [31:0] expected_q [0:ND-1][$];
     logic [31:0] lfsr = 32'h6d5a_1f37;
     int completed;
     int cycle;
@@ -35,12 +36,16 @@ module tb_vmem_dat_6_5;
         .t_idma_1_dat(t_idma[1]),
         .t_idma_2_dat(t_idma[2]),
         .t_idma_3_dat(t_idma[3]),
+        .t_idma_4_dat(t_idma[4]),
+        .t_idma_5_dat(t_idma[5]),
         .idma_valid(idma_valid),
         .idma_ready(idma_ready),
         .i_odma_0_dat(i_odma[0]),
         .i_odma_1_dat(i_odma[1]),
         .i_odma_2_dat(i_odma[2]),
         .i_odma_3_dat(i_odma[3]),
+        .i_odma_4_dat(i_odma[4]),
+        .i_odma_5_dat(i_odma[5]),
         .odma_valid(odma_valid),
         .odma_ready(odma_ready),
         .t_ivs_dat(t_ivs_dat),
@@ -82,7 +87,7 @@ module tb_vmem_dat_6_5;
     function automatic logic [15:0] read_addr(input int dma, input int index);
         int owner;
         int write_slot;
-        owner = (index * 3 + dma) & 3;
+        owner = (index * 3 + dma) % ND;
         write_slot = (index * 7 + dma * 11) % WRITES_PER_DMA;
         return write_addr(owner, write_slot);
     endfunction
@@ -90,13 +95,13 @@ module tb_vmem_dat_6_5;
     function automatic logic [31:0] read_data(input int dma, input int index);
         int owner;
         int write_slot;
-        owner = (index * 3 + dma) & 3;
+        owner = (index * 3 + dma) % ND;
         write_slot = (index * 7 + dma * 11) % WRITES_PER_DMA;
         return write_data(owner, write_slot);
     endfunction
 
     task automatic check_outputs();
-        for (int dma = 0; dma < 4; dma++) begin
+        for (int dma = 0; dma < ND; dma++) begin
             if (odma_valid[dma]) begin
                 if (expected_q[dma].size() == 0)
                     $fatal(1, "dma%0d produced an unexpected response at cycle %0d",
@@ -109,7 +114,7 @@ module tb_vmem_dat_6_5;
     endtask
 
     task automatic clear_expected();
-        for (int dma = 0; dma < 4; dma++)
+        for (int dma = 0; dma < ND; dma++)
             expected_q[dma].delete();
     endtask
 
@@ -158,11 +163,11 @@ module tb_vmem_dat_6_5;
 
     initial begin
         logic [31:0] random_bits;
-        logic [3:0] input_fire;
-        logic [3:0] output_fire;
+        logic [ND-1:0] input_fire;
+        logic [ND-1:0] output_fire;
         bit all_done;
 
-        for (int dma = 0; dma < 4; dma++)
+        for (int dma = 0; dma < ND; dma++)
             t_idma[dma] = 0;
 
         repeat (5) @(posedge clk);
@@ -172,7 +177,7 @@ module tb_vmem_dat_6_5;
         all_done = 0;
         while (!all_done) begin
             random_bits = next_lfsr();
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (!idma_valid[dma] && write_index[dma] < WRITES_PER_DMA
                     && random_bits[dma]) begin
                     t_idma[dma] = {
@@ -188,14 +193,14 @@ module tb_vmem_dat_6_5;
             @(posedge clk);
             #1;
             cycle++;
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (input_fire[dma]) begin
                     write_index[dma]++;
                     idma_valid[dma] = 1'b0;
                 end
             end
             all_done = 1;
-            for (int dma = 0; dma < 4; dma++)
+            for (int dma = 0; dma < ND; dma++)
                 if (write_index[dma] != WRITES_PER_DMA)
                     all_done = 0;
             if (cycle > 10000)
@@ -209,7 +214,7 @@ module tb_vmem_dat_6_5;
         all_done = 0;
         while (!all_done) begin
             random_bits = next_lfsr();
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (!idma_valid[dma]
                     && reset_read_index[dma] < RESET_READS_PER_DMA) begin
                     t_idma[dma] = {
@@ -226,14 +231,14 @@ module tb_vmem_dat_6_5;
             @(posedge clk);
             #1;
             cycle++;
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (input_fire[dma]) begin
                     reset_read_index[dma]++;
                     idma_valid[dma] = 1'b0;
                 end
             end
             all_done = 1;
-            for (int dma = 0; dma < 4; dma++)
+            for (int dma = 0; dma < ND; dma++)
                 if (reset_read_index[dma] != RESET_READS_PER_DMA)
                     all_done = 0;
         end
@@ -252,9 +257,9 @@ module tb_vmem_dat_6_5;
         if (odma_valid != 0)
             $fatal(1, "reset did not discard queued responses");
 
-        while (completed < 4 * READS_PER_DMA) begin
+        while (completed < ND * READS_PER_DMA) begin
             random_bits = next_lfsr();
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (!idma_valid[dma] && read_index[dma] < READS_PER_DMA
                     && random_bits[dma]) begin
                     t_idma[dma] = {
@@ -265,7 +270,7 @@ module tb_vmem_dat_6_5;
                     idma_valid[dma] = 1'b1;
                 end
             end
-            odma_ready = random_bits[7:4];
+            odma_ready = random_bits[ND +: ND];
             #1;
             check_outputs();
             input_fire = idma_valid & idma_ready;
@@ -274,7 +279,7 @@ module tb_vmem_dat_6_5;
             #1;
             cycle++;
 
-            for (int dma = 0; dma < 4; dma++) begin
+            for (int dma = 0; dma < ND; dma++) begin
                 if (output_fire[dma]) begin
                     void'(expected_q[dma].pop_front());
                     completed++;
@@ -291,14 +296,14 @@ module tb_vmem_dat_6_5;
         end
 
         idma_valid = 0;
-        odma_ready = 4'hf;
+        odma_ready = '1;
         repeat (8) @(posedge clk);
-        for (int dma = 0; dma < 4; dma++) begin
+        for (int dma = 0; dma < ND; dma++) begin
             if (expected_q[dma].size() != 0 || odma_valid[dma])
                 $fatal(1, "dma%0d did not drain", dma);
         end
 
-        $display("PASS: vmem_dat_6_5_1_1 preserved 512 ordered reads across four stalled DMA ports and reset in flight");
+        $display("PASS: vmem_dat_6_5_1_1 preserved 768 ordered reads across six stalled DMA ports and reset in flight");
         $finish;
     end
 

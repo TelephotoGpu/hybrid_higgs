@@ -207,6 +207,11 @@ module d_engine
          //.dma_2_config_payload_timerInit(),
          //.dma_2_config_payload_reverse(),
          //.dma_2_config_payload_last_or_run_till_last(),
+
+         .dma_3_status(32'h0),
+         .dma_3_config_ready(1'b1),
+         .dma_4_status(32'h0),
+         .dma_4_config_ready(1'b1),
          
          //.io_timerStatus_gtimer(timerCsr_gtimer),
          

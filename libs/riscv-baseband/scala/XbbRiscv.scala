@@ -91,6 +91,8 @@ object XbbRiscvConfig{
       new DmaCsrPlugin("0",0xB08),
       new DmaCsrPlugin("1",0xB18),
       new DmaCsrPlugin("2",0xB28),
+      new DmaCsrPlugin("3",0xB48),
+      new DmaCsrPlugin("4",0xB58),
       //Reserve 0xB30-0xB3F for riscv profiling
       new MapperMoverCsrPlugin(0xC00),
       //        new InterruptCsrPlugin(0xD00),
@@ -207,6 +209,16 @@ case class XbbRiscv(config : XbbRiscvConfig) extends Component{
     val ncoDmaStatus = slave(DmaStatus()).setName("dma_2")
     val ncoDmaInterruptClear = master(DmaInterruptClear()).setName("dma_2")
     val ncoDmaConfigStream = master(DmaConfigStream()).setName("dma_2")
+    //DMA Out - FIR feed (VMEM -> FIR)
+    val firInDmaReset = master(DmaReset()).setName("dma_3")
+    val firInDmaStatus = slave(DmaStatus()).setName("dma_3")
+    val firInDmaInterruptClear = master(DmaInterruptClear()).setName("dma_3")
+    val firInDmaConfigStream = master(DmaConfigStream()).setName("dma_3")
+    //DMA In - FIR result (FIR -> VMEM)
+    val firOutDmaReset = master(DmaReset()).setName("dma_4")
+    val firOutDmaStatus = slave(DmaStatus()).setName("dma_4")
+    val firOutDmaInterruptClear = master(DmaInterruptClear()).setName("dma_4")
+    val firOutDmaConfigStream = master(DmaConfigStream()).setName("dma_4")
 
     val mapmov = master(MapperMoverControl()).setName("mapmov")
 
@@ -349,6 +361,18 @@ case class XbbRiscv(config : XbbRiscvConfig) extends Component{
           io.ncoDmaStatus <> plugin.status
           io.ncoDmaInterruptClear <> plugin.interrupt_clear
           io.ncoDmaReset <> plugin.reset
+        }
+        else if (plugin.e == "3") {
+          io.firInDmaConfigStream <> plugin.dma
+          io.firInDmaStatus <> plugin.status
+          io.firInDmaInterruptClear <> plugin.interrupt_clear
+          io.firInDmaReset <> plugin.reset
+        }
+        else if (plugin.e == "4") {
+          io.firOutDmaConfigStream <> plugin.dma
+          io.firOutDmaStatus <> plugin.status
+          io.firOutDmaInterruptClear <> plugin.interrupt_clear
+          io.firOutDmaReset <> plugin.reset
         }
 
       }

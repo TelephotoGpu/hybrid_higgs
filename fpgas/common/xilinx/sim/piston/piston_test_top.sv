@@ -5,14 +5,18 @@ module piston_test_top (
     input wire [48:0] in1,
     input wire [48:0] in2,
     input wire [48:0] in3,
-    input wire [3:0] in_valid,
-    output wire [3:0] in_ready,
+    input wire [48:0] in4,
+    input wire [48:0] in5,
+    input wire [5:0] in_valid,
+    output wire [5:0] in_ready,
     output wire [31:0] out0,
     output wire [31:0] out1,
     output wire [31:0] out2,
     output wire [31:0] out3,
-    output wire [3:0] out_valid,
-    input wire [3:0] out_ready
+    output wire [31:0] out4,
+    output wire [31:0] out5,
+    output wire [5:0] out_valid,
+    input wire [5:0] out_ready
 );
     wire unused_instr_ready;
 
@@ -45,6 +49,18 @@ module piston_test_top (
         .i_odma_2_ack(out_ready[2]),
         .i_odma_3_dat(out3),
         .i_odma_3_req(out_valid[3]),
-        .i_odma_3_ack(out_ready[3])
+        .i_odma_3_ack(out_ready[3]),
+        .t_idma_4_dat(in4),
+        .t_idma_4_req(in_valid[4]),
+        .t_idma_4_ack(in_ready[4]),
+        .t_idma_5_dat(in5),
+        .t_idma_5_req(in_valid[5]),
+        .t_idma_5_ack(in_ready[5]),
+        .i_odma_4_dat(out4),
+        .i_odma_4_req(out_valid[4]),
+        .i_odma_4_ack(out_ready[4]),
+        .i_odma_5_dat(out5),
+        .i_odma_5_req(out_valid[5]),
+        .i_odma_5_ack(out_ready[5])
     );
 endmodule

@@ -11,8 +11,8 @@
 static constexpr int kTransactions = 512;
 static Vvmem_dat_arb_test_top *top;
 static FILE *trace_file;
-static std::array<std::deque<int>, 4> order_q;
-static std::array<std::array<std::deque<uint32_t>, 16>, 4> data_q;
+static std::array<std::deque<int>, 6> order_q;
+static std::array<std::array<std::deque<uint32_t>, 16>, 6> data_q;
 static int order_index;
 static int return_index;
 static int completed;
@@ -21,7 +21,7 @@ static int errors;
 static uint32_t lfsr = 0x91e10da5u;
 
 static uint32_t tx_data(int index) { return 0xa5000000u | index; }
-static int tx_dma(int index) { return (index * 3 + 1) & 3; }
+static int tx_dma(int index) { return (index * 3 + 1) % 6; }
 static int tx_slice(int index) { return (index * 5 + 7) & 15; }
 
 static uint32_t next_lfsr() {
@@ -43,7 +43,7 @@ static void fail(const std::string &message) {
 }
 
 static void check_outputs() {
-  for (int dma = 0; dma < 4; ++dma) {
+  for (int dma = 0; dma < 6; ++dma) {
     const bool expected_valid =
         !order_q[dma].empty() && !data_q[dma][order_q[dma].front()].empty();
     const bool got_valid = (top->out_valid >> dma) & 1;
@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
   trace_file = std::fopen(trace_path.c_str(), "w");
   if (!trace_file)
     return 2;
-  std::fprintf(trace_file, "cycle,resetn,order_valid,order_ready,order_dma,order_slice,return_valid,return_ready,return_dma,return_slice,return_data,out_ready,out_valid,out0,out1,out2,out3\n");
+  std::fprintf(trace_file, "cycle,resetn,order_valid,order_ready,order_dma,order_slice,return_valid,return_ready,return_dma,return_slice,return_data,out_ready,out_valid,out0,out1,out2,out3,out4,out5\n");
 
   top->resetn = 0;
   top->return_valid = 0;
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
       top->return_slice = tx_slice(return_index);
       top->return_data = tx_data(return_index);
     }
-    top->out_ready = (random_bits >> 2) & 0xf;
+    top->out_ready = (random_bits >> 2) & 0x3f;
 
     top->clk = 0;
     top->eval();
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
       top->return_valid = 0;
     }
 
-    for (int dma = 0; dma < 4; ++dma) {
+    for (int dma = 0; dma < 6; ++dma) {
       if ((output_fire >> dma) & 1) {
         data_q[dma][order_q[dma].front()].pop_front();
         order_q[dma].pop_front();
@@ -132,12 +132,13 @@ int main(int argc, char **argv) {
     }
     check_outputs();
 
-    std::fprintf(trace_file, "%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%x,%x,%x,%x,%x,%x\n",
+    std::fprintf(trace_file, "%d,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%x,%x,%x,%x,%x,%x,%x,%x\n",
                  cycle_count, top->resetn, top->order_valid, top->order_ready,
                  top->order_dma, top->order_slice, top->return_valid,
                  top->return_ready, top->return_dma, top->return_slice,
                  top->return_data, top->out_ready, top->out_valid,
-                 output_data(0), output_data(1), output_data(2), output_data(3));
+                 output_data(0), output_data(1), output_data(2), output_data(3),
+                 output_data(4), output_data(5));
 
     if (cycle_count > 20000) {
       fail("timeout");
@@ -146,7 +147,7 @@ int main(int argc, char **argv) {
   }
 
   if (errors == 0)
-    std::puts("PASS: VMEM arbiter preserved 512 ordered transactions under independent input and output stalls");
+    std::puts("PASS: VMEM arbiter preserved 512 ordered transactions across six DMA ports under independent input and output stalls");
   else
     std::printf("FAIL: %d VMEM arbiter mismatches\n", errors);
 

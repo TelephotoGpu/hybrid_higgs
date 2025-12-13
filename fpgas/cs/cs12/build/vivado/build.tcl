@@ -43,6 +43,8 @@ add_files -norecurse $source_root/libs/d-engine/rtl/elastic-buffer/eb15.sv
 add_files -norecurse $source_root/libs/q-engine/piston/hdl/vmem_dat_6_5_1_1.v
 add_files -norecurse $source_root/libs/q-engine/piston/hdl/vmem_dat_arb_out_spinal_wrapper.v
 add_files -norecurse $source_root/libs/spinal/hw/gen/VmemDatArbOut1_1.v
+add_files -norecurse $source_root/libs/q-engine/hdl/dma/dma_out_last.v
+add_files -norecurse $source_root/libs/q-engine/hdl/fir/fir_filter.v
 
 set_property include_dirs [list \
     "$source_root/fpgas/packages" \
