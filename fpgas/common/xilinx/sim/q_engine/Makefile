@@ -69,6 +69,10 @@ QENGINE_SOURCES := \
 	$(QENGINE)/hdl/dma/dma_out.v \
 	$(QENGINE)/hdl/dma/dma_out_last.v \
 	$(QENGINE)/hdl/fir/fir_filter.v \
+	$(QENGINE)/hdl/stream/stream_router.v \
+	$(QENGINE)/hdl/stream/stream_merge.v \
+	$(QENGINE)/hdl/stream/stream_stall.v \
+	$(QENGINE)/hdl/xcorr/golay_corr.v \
 	$(QENGINE)/hdl/dma/dma_in_dummy.v \
 	$(QENGINE)/hdl/nco/nco_gen.v \
 	$(BUILD)/patched/nco.v \

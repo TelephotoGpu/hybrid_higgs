@@ -203,3 +203,230 @@
   not in the FIR. The 37 input/37 output ports still lack board I/O delays,
   as before.
 
+
+# Phase 2 notes (add stream router and Golay correlator)
+
+## phase-2 contract
+
+- The second design interview is recorded in PLAN.md ("Phase 2"). Firmware
+  does not overlap FIR and correlator jobs; the module harnesses exercise
+  overlap with random valid/ready.
+
+## `stream_router`, `stream_merge`, `stream_stall`
+
+- RTL is in `libs/q-engine/hdl/stream/`. All three files are lint-clean
+  with `verilator -Wall`.
+- `stream_stall` is a pure wire unless `QSTREAM_STALL_INJECT` is defined.
+  When defined, it becomes a 2-entry AXI-compliant FIFO whose input and
+  output are gated by xorshift. The seed comes from `+STALL_SEED` mixed
+  with the `SALT` parameter.
+- Harness: `fpgas/common/xilinx/sim/stream_router_merge`.
+  - It has three modes: MODE 0 router alone, MODE 1 merge alone, MODE 2
+    router -> two random echo arms -> merge.
+  - Each mode runs 20 seeds with random gaps, backpressure, `last`, bad
+    route words and route-only packets. Seed 0 is a full-rate check.
+  - MODE 0/2 run two phases so that sticky `err` and `err_clear` can be
+    checked.
+  - `make compare`: **60/60 PASS** in Verilator and XSIM with identical
+    traces.
+- Harness bug fixed during bring-up: the phase-0 drain check compared
+  against the final expected counts instead of the counts at the phase
+  boundary. The full-rate check now measures phase 1 only.
+- Mutation checks:
+  - Dropping the route word's reserved-bit check fails MODE 0.
+  - Replacing round-robin `rr <= cur + 1` with `rr <= cur` fails MODE 1
+    with 202 errors.
+
+## q_engine integration and `fir_driver` route/tag words
+
+- `q_engine.v` (Xilinx, `!NO_FIR`) now wires:
+  - `DMA_3 -> stall -> stream_router(N=2)`;
+  - port 0: `stall -> fir_filter -> stall -> stream_merge`;
+  - `stream_merge -> stall -> DMA_4`.
+
+  Port 1 sinks its input and drives no output until `golay_corr` is added.
+- New RTL files were added to the q_engine and vex_machine_top harnesses,
+  `test_fir_1`, and CS12 `build.tcl`.
+- `fir_driver`:
+  - Its scratch area holds `[ROUTE0, hdr]` pairs, so route and header go
+    out as one 2-word DMA_3 schedule. `FIR_SCRATCH_WORDS` is now 7.
+  - Every output job schedules DMA_4 twice: 1 tag word into scratch, then
+    the n samples.
+  - `fir_last_tag()` returns the last captured tag.
+  - `fir_send_raw()` prepends the route word.
+- `test_fir_1`:
+  - The firmware appends `fir_last_tag()` after the samples, and
+    `gen_vectors.py` expects `0x5271<<16 | (n_data_pkts-1)<<4 | 0`.
+  - The store must be `volatile`. Otherwise GCC removes it as a dead store,
+    because only DMA_1 reads it before the final `while(1)`.
+- `test_fir_1` now builds with `QSTREAM_STALL_INJECT`. The plusarg is set
+  with `STALL_SEED` (default 1); `RUN_PLUSARGS` was added to `tb_common.mk`
+  and `xsim_common.mk`, where it becomes `-testplusarg`.
+- Results:
+  - Verilator: 476/476 words match (475 samples + tag) for stall seeds
+    1–5.
+  - `make xsim_compare`: PASS, with Verilator and XSIM identical.
+
+## phase-2 regressions (step 2)
+
+- `make compare` passes for every Xilinx module harness: q_engine,
+  vex_machine_top, fir_filter, dma_out_last, alu54b_wrapper, fwft_sc_fifo,
+  generic_dpram, generic_fifo_sc_a, memory_slice, muladdsub, piston,
+  scalar_memory and vmem_dat_arb.
+- `make xsim` passes for memory_slice_1_1 and vmem_dat_6_5.
+- `sim/verilator/test_nco` `make xsim_compare`: PASS (32768 samples, parity).
+
+## Golay model, `golay_corr` RTL and harness (steps 3-4)
+
+- Model: `libs/q-engine/hdl/xcorr/model/golay_model.py`. Its self-test
+  covers:
+  - for M in {1,2,3,5,7}, random permutation and non-permutation configs;
+  - complementarity of the pairs (for permutations);
+  - bit-exactness of the structural EGC against a brute-force matched
+    filter on full-scale random input;
+  - the mode-0 peak `2L·amp` at the last sample of b;
+  - history persisting across split packets and config loads, and being
+    cleared by RESET;
+  - every framing and error rule.
+- A width finding from RTL bring-up corrected the PLAN's "1 bit per stage".
+  `-(-32768)` makes `+2^(15+k)` reachable (for example, M=1, w=-1:
+  b = [-1,-1], and x = -32768 gives Rb = +65536). Stage k now outputs 17+k
+  bits, and the model self-test asserts this case.
+- A second bring-up bug: the rounding constant `1<<30` for shift 31
+  overflowed the 25-bit rounding register. `RW` is now at least 33 bits.
+- RTL: `libs/q-engine/hdl/xcorr/golay_corr.v`. It has no multipliers.
+  - Per-stage 64-deep addressable SRL delay lines shift only on valid
+    samples. Fill counters zero the tap after RESET, because SRLs have no
+    reset.
+  - A 128-deep Ra history (a flat shift vector) feeds mode 0.
+  - Config commits and RESET wait in `S_WAIT` (registered `t_ready` = 0)
+    until the pipeline is empty, so they take effect in stream order.
+- Harness: `fpgas/common/xilinx/sim/golay_corr`, with 20 seeds at M=7 plus
+  M=1..5.
+  - `make compare`: **25/25 PASS**, with Verilator and XSIM traces
+    identical.
+  - Seed 0 is full rate except for 4 bounded config/reset drains.
+- Mutation check: committing without waiting for the pipeline to drain
+  (`apply = state == S_WAIT`) fails 20 runs.
+
+## correlator on port 1 (step 5)
+
+- `q_engine.v`: port 1 is `stall_xcin` (SALT 4) -> `golay_corr #(.M(7))` ->
+  `stall_xcout` (SALT 5) -> merge port 1. The sink tie-off is gone.
+  `golay_corr.v` was added to the q_engine and vex_machine_top harnesses,
+  `test_fir_1` and the CS12 `build.tcl`.
+- `test_fir_1` (Verilator + XSIM compare, 476 words) and the q_engine and
+  vex_machine_top trace compares pass.
+
+## `qstream` library, drivers, `test_qstream_1` (step 6)
+
+- `libs/riscv-baseband/c/inc/qstream.{h,c}` implements the design in
+  PLAN.md "Firmware (as built)".
+  - The receive path deviates from the PLAN text: DMA_4 lands each payload
+    directly in the caller's buffer. There is no receive ring or copy.
+  - FIR and correlator jobs may overlap. The earlier "firmware does not
+    overlap" note is superseded, because step 7 muxes them.
+  - Completion uses `completed = pushed - occupancy` on both DMAs. This is
+    exact, because both pop a schedule only when its last access issues.
+  - Tag slots are zeroed after use and spun on until non-zero, which covers
+    write latency.
+- `fir_driver` is rebuilt on qstream. `fir_init()` takes no scratch now;
+  the `QSTREAM_*` macros moved to `qstream.h`. New: `fir_filter_cb`.
+- New `xcorr_driver.{h,c}` (port 1) provides:
+  - header, mode, seed and config-word macros;
+  - `xcorr_load_cfg`, `xcorr_reset`, `xcorr_correlate[_cb]`, `xcorr_send_raw`;
+  - `xcorr_golay_pair_words()`, an in-place pair generator. It matched
+    `golay_model.golay_pair` for 50 random configs on the host and
+    rejects non-permutations.
+- The firmware build compiles every `inc/*.c`. `--gc-sections` keeps
+  unused qstream/xcorr code out of other images.
+- `sim/verilator/test_qstream_1` (directed):
+  - an op-interpreter firmware plus `qs_gen.py`, which mirrors router,
+    FIR, Golay and tags;
+  - the tb stops when the expected word count arrives;
+  - coverage is listed in its README.
+  - Result: 711 words bit-exact in Verilator (STALL_SEED 1–7) and in XSIM
+    (`make xsim_compare` PASS).
+- Findings:
+  - `ld_standard` puts `.sbss` in `.var_space`, outside the range crt
+    zeroes. Small statics therefore start at 0 in Verilator but X in XSIM,
+    which first showed up as an XSIM-only trailer mismatch. The test
+    firmware now initializes them explicitly; qstream already did. The
+    linker script is unchanged, since that is out of scope.
+  - `$display("%m")` in `stream_stall`'s initial block segfaulted Verilator
+    4.016: scope registration runs during the tb's static construction.
+    The new `+STALL_VERBOSE` print omits `%m`. It confirmed that all 12
+    shims (CS12 and CS20) read `+STALL_SEED`.
+  - In this directed test the end cycle is identical across stall seeds.
+    The CPU is the bottleneck, and each `qstream_wait` poll iteration
+    (~100 cycles) absorbs the few cycles of stall latency on small packets.
+- Review fix (after the first passing runs): payload visibility.
+  - The VMEM input arbiter (`vmem_dat_6_5_1_1`) is fixed-priority, and
+    DMA_4 (`t_idma_5`, behind an `eb15`) is its lowest-priority writer.
+    dma_in retires a schedule when the last write is *accepted*, so up to a
+    few final words can land after the CPU sees completion. A CPU load of
+    the same bank (`t_idma_2`) would win arbitration and read stale data.
+  - qstream now stores a sentinel in `dst[n-1]` before scheduling each
+    payload. A job retires only once that word has changed; DMA_4 writes
+    land in order, so every earlier word is then visible too. Data that
+    equals the sentinel retires after 8 extra polls.
+  - `fir_wait()` now returns `qstream_wait()`'s status instead of dropping
+    `QSTREAM_EPROTO`.
+  - After the fix, test_qstream_1 (711 words) and test_fir_1 (476 words)
+    pass again in Verilator.
+
+## `test_xcorr_fir_1`, randomized FIR + correlator muxing (step 7)
+
+- `sim/verilator/test_xcorr_fir_1` reuses the test_qstream_1 firmware,
+  tb and compare scripts. `gen_vectors.py` draws a random program from
+  `TEST_SEED`:
+  - FIR and correlator packets interleave back and forth (`BURST` ops),
+    and both ports have jobs in flight at once;
+  - coefficient and config reloads and resets are mid-stream;
+  - raw error packets and bad route words are included;
+  - random packet lengths reach FIR packets over 256 so tag seq wraps.
+- The stream_stall shims inject random valid/ready gaps from `STALL_SEED`.
+  `make seeds SEEDS="t:s ..."` rebuilds only vectors and firmware, then
+  reruns the same Verilator model.
+- Results (Verilator; all bit-exact against the Python models):
+
+  | TEST_SEED:STALL_SEED | words | cycles |
+  |---|---|---|
+  | 1:1 | 3796 | 1,177,353 |
+  | 1:9 | 3796 | 1,177,369 |
+  | 2:7 | 3613 | 1,338,979 |
+  | 3:3 | 5255 | 1,715,403 |
+  | 4:11 | 3454 | 1,182,787 |
+  | 5:5 | 4542 | 1,325,802 |
+  | 6:13 | 3361 | 1,100,001 |
+  | 7:2 | 2017 | 838,046 |
+  | 8:17 | 4655 | 1,402,267 |
+
+  `make xsim_compare TEST_SEED=1 STALL_SEED=1`: PASS. The same 3796 words
+  are bit-exact in Verilator and XSIM (elaboration ~30 min, run ~4 min).
+  Seeds 2 and 3 ran before the sentinel fix. Seed 1 took 1,160,000
+  cycles before the fix, so the sentinel check costs about 1.5%. Stall
+  seeds change the end cycle only slightly, since the CPU
+  (`qstream_poll` loop) is the throughput bottleneck.
+
+## timing, phase 2 (step 7 of the original list)
+
+Part xczu7ev-ffvc1156-2-e, 125 MHz, Vivado 2025.2.
+
+- OOC harness: `fpgas/common/xilinx/timing/qstream/qstream_ooc.tcl`
+
+  | module | WNS | WHS | LUT | FF | DSP | BRAM |
+  |---|---|---|---|---|---|---|
+  | golay_corr M=7 | +4.128 | +0.019 | 2603 (748 SRL) | 1077 | 0 | 0 |
+  | stream_router | +6.417 | met | 41 | 77 | 0 | 0 |
+  | stream_merge | +6.416 | met | 83 | 89 | 0 | 0 |
+
+  golay_corr's worst path is `cp_reg` -> `stg[4].rb_i_reg` (10 levels,
+  4 CARRY8). The only methodology warnings are TIMING-18 (OOC I/O).
+- CS12 full implementation: all constraints met, with no failing
+  endpoints for setup or hold.
+  - Setup WNS +3.167 ns (worst path inside VexRiscv); hold WHS +0.010 ns.
+  - Utilization: 33,843 LUTs (3,060 as memory), 33,780 FFs, 132 DSPs,
+    72 RAMB36.
+  - Against phase 1 (WNS +2.320, 31,062 LUTs, 132 DSPs): +2.8k LUTs and
+    no new DSPs. The correlator is multiplier-free.

@@ -341,7 +341,7 @@ xsim_elab: xsim_compile
 
 xsim_run: xsim_elab
 	command -v xsim >/dev/null
-	xsim $(XSIM_TOP) -R | tee xsim_run.log
+	xsim $(XSIM_TOP) -R $(foreach a,$(RUN_PLUSARGS),-testplusarg $(patsubst +%,%,$(a))) | tee xsim_run.log
 
 xsim: xsim_run
 
@@ -364,7 +364,7 @@ verilator_run_log:
 	$(MAKE) verilate
 	$(MAKE) verilator_parse_syms
 	$(MAKE) compile
-	./obj_dir/$(VER_BINARY) | tee verilator_run.log
+	./obj_dir/$(VER_BINARY) $(RUN_PLUSARGS) | tee verilator_run.log
 
 xsim_compare: verilator_run_log xsim_run
 	$(XSIM_COMPARE_COMMAND)

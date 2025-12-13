@@ -85,6 +85,9 @@ def main():
     sat_hits = sum(1 for w in expected
                    for v in fm.unpack(w) if v in (0x7FFF, -0x8000))
     assert sat_hits > 0, "coefficient set B must exercise saturation"
+    # stream_merge tags each output packet; the firmware appends the last one
+    n_out_pkts = sum(1 for op in ops if op[0] == "data")
+    expected.append((0x5271 << 16) | (((n_out_pkts - 1) & 0xFF) << 4) | 0)
 
     hdr = os.path.join(HERE, "override/fpgas/cs/cs20/c/src/fir_vectors.h")
     with open(hdr, "w") as f:

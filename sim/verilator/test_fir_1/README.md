@@ -1,10 +1,11 @@
 # FIR platform regression
 
 This test runs the Q-engine complex FIR through the full platform, under the
-control of the CS20 firmware and the `fir_driver` C library:
+control of the CS20 firmware and the `fir_driver` C library (built on the
+`qstream` transport):
 
 ```text
-VMEM -> DMA_3 (dma_out_last) -> fir_filter -> DMA_4 (dma_in) -> VMEM -> DMA_1 -> CS20 stream
+VMEM -> DMA_3 -> stream_router -> fir_filter (port 0) -> stream_merge -> DMA_4 -> VMEM -> DMA_1 -> CS20 stream
 ```
 
 `gen_vectors.py` uses the bit-exact model in
@@ -32,8 +33,19 @@ full.
    then DATA 33.
 9. LOAD_COEFFS A again, then DATA 40.
 
-Both simulators compare all 475 output words bit-exactly against
-`expected.hex`. `compare_fir.py` then checks both captured streams against
+Every DMA_3 packet starts with a route word (port 0), and every output
+packet is preceded by a merge tag word, which qstream consumes and checks.
+After `fir_wait()`, the firmware appends `fir_last_tag()`. Its expected
+value is `0x5271<<16 | (n_data_packets-1)<<4 | 0`; any qstream receive
+error replaces it with `0xdead0000 | errors`. golay_corr sits idle on
+router port 1 (see `test_qstream_1` and `test_xcorr_fir_1`).
+
+The build defines `QSTREAM_STALL_INJECT`, so the `stream_stall` shims
+around the router and merge insert random valid/ready gaps. Pick the stall
+pattern with `make ... STALL_SEED=<n>` (default 1).
+
+Both simulators compare all 476 output words (475 samples plus the tag)
+bit-exactly against `expected.hex`. `compare_fir.py` then checks both captured streams against
 the model again.
 
 The FIR exists only in the Xilinx Q-engine, which has the 6-port VMEM

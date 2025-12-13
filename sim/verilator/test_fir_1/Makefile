@@ -27,12 +27,20 @@ FIR_XILINX_SOURCES=\
 	$(HIGGS_ROOT)/libs/spinal/hw/gen/VmemDatArbOut1_1.v \
 	$(XILINX_DIR)/memory_slice_1_1_xilinx.sv \
 	$(Q_ENGINE_REPO)/hdl/dma/dma_out_last.v \
-	$(Q_ENGINE_REPO)/hdl/fir/fir_filter.v
+	$(Q_ENGINE_REPO)/hdl/fir/fir_filter.v \
+	$(Q_ENGINE_REPO)/hdl/stream/stream_router.v \
+	$(Q_ENGINE_REPO)/hdl/stream/stream_merge.v \
+	$(Q_ENGINE_REPO)/hdl/stream/stream_stall.v \
+	$(Q_ENGINE_REPO)/hdl/xcorr/golay_corr.v
 
 VER_SOURCES+=$(FIR_XILINX_SOURCES)
 # Verilator gets the behavioural XPM model; XSIM links the vendor xpm library.
+# QSTREAM_STALL_INJECT turns the stream_stall shims around the router/merge
+# into seeded random valid/ready gaps (STALL_SEED).
+STALL_SEED?=1
+RUN_PLUSARGS+=+STALL_SEED=$(STALL_SEED)
 EXTRA_VERILATOR_ARGS=+define+HIGGS_FPGA_XILINX +define+MEMORY_SLICE_1_1 \
-	+define+VMEM_DAT_ARB_OUT_1_1 \
+	+define+VMEM_DAT_ARB_OUT_1_1 +define+QSTREAM_STALL_INJECT \
 	$(XILINX_DIR)/sim/memory_slice/xpm_memory_tdpram_verilator_model.sv
 
 # piston is flattened without the Lattice memory_slice, so no VMEM peeking
@@ -50,7 +58,7 @@ compilehex: vectors
 
 include $(HIGGS_ROOT)/scripts/make_include/xsim_common.mk
 
-XSIM_DEFINES+=-d HIGGS_FPGA_XILINX -d MEMORY_SLICE_1_1 -d VMEM_DAT_ARB_OUT_1_1
+XSIM_DEFINES+=-d HIGGS_FPGA_XILINX -d MEMORY_SLICE_1_1 -d VMEM_DAT_ARB_OUT_1_1 -d QSTREAM_STALL_INJECT
 XSIM_ELAB_FLAGS=-L xpm
 XSIM_COMPARE_COMMAND=python3 compare_fir.py $(EXPECTED_HEX) verilator_run.log cs20_out.hex xsim_run.log xsim_fir.hex
 

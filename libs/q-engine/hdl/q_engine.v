@@ -721,15 +721,43 @@ module q_engine
 `endif
 
 `ifdef Q_ENGINE_HAS_FIR
+   // Phase 2 (doc/add-fir/PLAN.md): DMA_3 -> router -> {port0 FIR, port1 xcorr}
+   // -> merge (tag word per packet) -> DMA_4.  stream_stall shims are wires
+   // unless QSTREAM_STALL_INJECT is defined (simulation only).
+   wire [31:0]           i_dma3_data;
+   wire                  i_dma3_last;
+   wire                  i_dma3_valid;
+   wire                  i_dma3_ready;
+   wire [31:0]           i_rtin_data;
+   wire                  i_rtin_last;
+   wire                  i_rtin_valid;
+   wire                  i_rtin_ready;
+   wire [2*32-1:0]       i_rt_data;
+   wire [1:0]            i_rt_last;
+   wire [1:0]            i_rt_valid;
+   wire [1:0]            i_rt_ready;
    wire [31:0]           i_firfeed_data;
    wire                  i_firfeed_last;
    wire                  i_firfeed_valid;
    wire                  i_firfeed_ready;
+   wire [31:0]           i_firout_data;
+   wire                  i_firout_last;
+   wire                  i_firout_valid;
+   wire                  i_firout_ready;
+   wire [2*32-1:0]       i_mg_data;
+   wire [1:0]            i_mg_last;
+   wire [1:0]            i_mg_valid;
+   wire [1:0]            i_mg_ready;
+   wire [31:0]           i_mgout_data;
+   wire                  i_mgout_last;
+   wire                  i_mgout_valid;
+   wire                  i_mgout_ready;
    wire [31:0]           i_fir_data;
    wire                  i_fir_last;
    wire                  i_fir_valid;
    wire                  i_fir_ready;
    wire [2:0]            fir_err;
+   wire                  router_err;
 
    dma_out_last dma_out_3
      (.clk(clk),
@@ -753,11 +781,41 @@ module q_engine
       .i0_addr(i0_dma_firrd_addr),
       .i0_valid(i0_dma_firrd_valid),
       .i0_ready(i0_dma_firrd_ready),
-      .i1_data(i_firfeed_data),
-      .i1_last(i_firfeed_last),
-      .i1_valid(i_firfeed_valid),
-      .i1_ready(i_firfeed_ready)
+      .i1_data(i_dma3_data),
+      .i1_last(i_dma3_last),
+      .i1_valid(i_dma3_valid),
+      .i1_ready(i_dma3_ready)
       );
+
+   stream_stall #(.SALT(1)) stall_rtin
+     (.clk(clk), .srst(srst),
+      .t_data(i_dma3_data), .t_last(i_dma3_last),
+      .t_valid(i_dma3_valid), .t_ready(i_dma3_ready),
+      .i_data(i_rtin_data), .i_last(i_rtin_last),
+      .i_valid(i_rtin_valid), .i_ready(i_rtin_ready));
+
+   stream_router #(.N(2)) stream_router_inst
+     (.clk(clk),
+      .srst(srst),
+      .t_data(i_rtin_data),
+      .t_last(i_rtin_last),
+      .t_valid(i_rtin_valid),
+      .t_ready(i_rtin_ready),
+      .i_data(i_rt_data),
+      .i_last(i_rt_last),
+      .i_valid(i_rt_valid),
+      .i_ready(i_rt_ready),
+      .err(router_err),
+      .err_clear(1'b0)
+      );
+
+   // ---- port 0: FIR
+   stream_stall #(.SALT(2)) stall_firin
+     (.clk(clk), .srst(srst),
+      .t_data(i_rt_data[31:0]), .t_last(i_rt_last[0]),
+      .t_valid(i_rt_valid[0]), .t_ready(i_rt_ready[0]),
+      .i_data(i_firfeed_data), .i_last(i_firfeed_last),
+      .i_valid(i_firfeed_valid), .i_ready(i_firfeed_ready));
 
    fir_filter #(.NTAPS(16)) fir_filter_inst
      (.clk(clk),
@@ -766,13 +824,80 @@ module q_engine
       .t_last(i_firfeed_last),
       .t_valid(i_firfeed_valid),
       .t_ready(i_firfeed_ready),
-      .i_data(i_fir_data),
-      .i_last(i_fir_last),
-      .i_valid(i_fir_valid),
-      .i_ready(i_fir_ready),
+      .i_data(i_firout_data),
+      .i_last(i_firout_last),
+      .i_valid(i_firout_valid),
+      .i_ready(i_firout_ready),
       .err(fir_err),
       .err_clear(1'b0)
       );
+
+   stream_stall #(.SALT(3)) stall_firout
+     (.clk(clk), .srst(srst),
+      .t_data(i_firout_data), .t_last(i_firout_last),
+      .t_valid(i_firout_valid), .t_ready(i_firout_ready),
+      .i_data(i_mg_data[31:0]), .i_last(i_mg_last[0]),
+      .i_valid(i_mg_valid[0]), .i_ready(i_mg_ready[0]));
+
+   // ---- port 1: Golay cross-correlator
+   wire [31:0]           i_xcfeed_data;
+   wire                  i_xcfeed_last;
+   wire                  i_xcfeed_valid;
+   wire                  i_xcfeed_ready;
+   wire [31:0]           i_xcout_data;
+   wire                  i_xcout_last;
+   wire                  i_xcout_valid;
+   wire                  i_xcout_ready;
+   wire [3:0]            xcorr_err;
+
+   stream_stall #(.SALT(4)) stall_xcin
+     (.clk(clk), .srst(srst),
+      .t_data(i_rt_data[63:32]), .t_last(i_rt_last[1]),
+      .t_valid(i_rt_valid[1]), .t_ready(i_rt_ready[1]),
+      .i_data(i_xcfeed_data), .i_last(i_xcfeed_last),
+      .i_valid(i_xcfeed_valid), .i_ready(i_xcfeed_ready));
+
+   golay_corr #(.M(7)) golay_corr_inst
+     (.clk(clk),
+      .srst(srst),
+      .t_data(i_xcfeed_data),
+      .t_last(i_xcfeed_last),
+      .t_valid(i_xcfeed_valid),
+      .t_ready(i_xcfeed_ready),
+      .i_data(i_xcout_data),
+      .i_last(i_xcout_last),
+      .i_valid(i_xcout_valid),
+      .i_ready(i_xcout_ready),
+      .err(xcorr_err),
+      .err_clear(1'b0)
+      );
+
+   stream_stall #(.SALT(5)) stall_xcout
+     (.clk(clk), .srst(srst),
+      .t_data(i_xcout_data), .t_last(i_xcout_last),
+      .t_valid(i_xcout_valid), .t_ready(i_xcout_ready),
+      .i_data(i_mg_data[63:32]), .i_last(i_mg_last[1]),
+      .i_valid(i_mg_valid[1]), .i_ready(i_mg_ready[1]));
+
+   stream_merge #(.N(2)) stream_merge_inst
+     (.clk(clk),
+      .srst(srst),
+      .t_data(i_mg_data),
+      .t_last(i_mg_last),
+      .t_valid(i_mg_valid),
+      .t_ready(i_mg_ready),
+      .i_data(i_mgout_data),
+      .i_last(i_mgout_last),
+      .i_valid(i_mgout_valid),
+      .i_ready(i_mgout_ready)
+      );
+
+   stream_stall #(.SALT(6)) stall_mgout
+     (.clk(clk), .srst(srst),
+      .t_data(i_mgout_data), .t_last(i_mgout_last),
+      .t_valid(i_mgout_valid), .t_ready(i_mgout_ready),
+      .i_data(i_fir_data), .i_last(i_fir_last),
+      .i_valid(i_fir_valid), .i_ready(i_fir_ready));
 
    dma_in dma_in_4
      (.clk(clk),

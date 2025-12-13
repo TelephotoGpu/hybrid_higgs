@@ -179,13 +179,13 @@ gensigs:
 	@node ../../gensigs.js $(VER_FLAGS) $(VER_INCLUDE_DIRS) $(VERILATOR_TB_INCLUDE_DEFINES) $(EXTRA_VERILATOR_ARGS) $(VERILATOR_C_OVERRIDE_DEFINES) -PREFIX=../../
 
 run_only:
-	./obj_dir/$(VER_BINARY)
+	./obj_dir/$(VER_BINARY) $(RUN_PLUSARGS)
 
 run: compile
-	./obj_dir/$(VER_BINARY)
+	./obj_dir/$(VER_BINARY) $(RUN_PLUSARGS)
 
 trun: compile
-	./obj_dir/$(VER_BINARY) +trace
+	./obj_dir/$(VER_BINARY) +trace $(RUN_PLUSARGS)
 
 verilate:
 	verilator $(VER_TOP) \

@@ -45,6 +45,10 @@ add_files -norecurse $source_root/libs/q-engine/piston/hdl/vmem_dat_arb_out_spin
 add_files -norecurse $source_root/libs/spinal/hw/gen/VmemDatArbOut1_1.v
 add_files -norecurse $source_root/libs/q-engine/hdl/dma/dma_out_last.v
 add_files -norecurse $source_root/libs/q-engine/hdl/fir/fir_filter.v
+add_files -norecurse $source_root/libs/q-engine/hdl/stream/stream_router.v
+add_files -norecurse $source_root/libs/q-engine/hdl/stream/stream_merge.v
+add_files -norecurse $source_root/libs/q-engine/hdl/stream/stream_stall.v
+add_files -norecurse $source_root/libs/q-engine/hdl/xcorr/golay_corr.v
 
 set_property include_dirs [list \
     "$source_root/fpgas/packages" \

@@ -78,6 +78,10 @@ SOURCES := \
 	$(Q_ENGINE)/hdl/dma/dma_out.v \
 	$(Q_ENGINE)/hdl/dma/dma_out_last.v \
 	$(Q_ENGINE)/hdl/fir/fir_filter.v \
+	$(Q_ENGINE)/hdl/stream/stream_router.v \
+	$(Q_ENGINE)/hdl/stream/stream_merge.v \
+	$(Q_ENGINE)/hdl/stream/stream_stall.v \
+	$(Q_ENGINE)/hdl/xcorr/golay_corr.v \
 	$(Q_ENGINE)/hdl/dma/dma_in_dummy.v \
 	$(Q_ENGINE)/hdl/nco/nco_gen.v \
 	$(GEN)/nco.v \
