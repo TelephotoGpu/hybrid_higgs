@@ -39,7 +39,7 @@ def main():
             ok = False
 
     if ok:
-        print(f"PASS: {len(expected)} words match the FIR + Golay Python models "
+        print(f"PASS: {len(expected)} words match the FIR + FFT correlator Python models "
               "exactly in Verilator and XSIM")
         return 0
     return 1

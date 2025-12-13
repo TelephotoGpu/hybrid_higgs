@@ -1,4 +1,4 @@
-// Verilator driver for golay_corr; cycle-for-cycle mirror of tb_golay_corr.sv.
+// Verilator driver for fft_corr; cycle-for-cycle mirror of tb_fft_corr.sv.
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -6,9 +6,9 @@
 #include <vector>
 
 #include <verilated.h>
-#include "Vgolay_corr.h"
+#include "Vfft_corr.h"
 
-static Vgolay_corr *top;
+static Vfft_corr *top;
 static int errors;
 static long cyc;
 
@@ -24,7 +24,7 @@ static void tick_half(int clk) {
 
 int main(int argc, char **argv) {
   Verilated::commandArgs(argc, argv);
-  top = new Vgolay_corr;
+  top = new Vfft_corr;
   const char *dir_arg = Verilated::commandArgsPlusMatch("DIR=");
   std::string dir = (dir_arg && *dir_arg) ? std::string(dir_arg + 5) : ".";
 

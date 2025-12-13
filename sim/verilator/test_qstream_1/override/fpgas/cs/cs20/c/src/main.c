@@ -1,14 +1,13 @@
 // qstream op interpreter (shared by test_qstream_1 and test_xcorr_fir_1).
 //
 // qs_vectors.h (from gen_vectors.py) holds a table of ops. The firmware
-// builds its input in VMEM (xorshift32 noise, literal words, Golay pairs
-// and correlator config words), then drives the FIR (port 0) and the Golay
-// correlator (port 1) through the fir_driver / xcorr_driver / qstream
+// builds its input in VMEM (xorshift32 noise and literal words), then drives
+// the FIR (port 0) and the FFT correlator (port 1) through the fir_driver / xcorr_driver / qstream
 // libraries. Packets for both ports are queued back to back; qstream decodes
 // each merge tag and routes the payload into that packet's out_v slot. A
 // callback checks every arrival against the op that expected it. At the end
 // out_v plus a status trailer is streamed out through DMA_1 and compared to
-// the Python models (FIR + Golay) by the testbench.
+// the Python models (FIR + fft_corr) by the testbench.
 #include "xbaseband.h"
 #include "csr_control.h"
 #include "vmem.h"
@@ -81,13 +80,9 @@ static void fill(unsigned int off, unsigned int n, unsigned int amp, unsigned in
     }
 }
 
-static void unpack_cfg(unsigned int pnib, unsigned int wbits,
-                       unsigned char *p, unsigned char *w) {
-    for(unsigned int k = 0; k < XCORR_M; k++) {
-        p[k] = (pnib >> (4 * k)) & 0xf;
-        w[k] = (wbits >> (2 * k)) & 0x3;
-    }
-}
+// correlator output format packed in an op field: (mode << 8) | shift
+#define XC_MODE(f)  (((f) >> 8) & 0x3u)
+#define XC_SHIFT(f) ((f) & 0x3fu)
 
 static unsigned int fail_word;
 
@@ -99,8 +94,6 @@ static void check(int r) {
 
 int main(void)
 {
-    unsigned char p[XCORR_M], w[XCORR_M];
-
     for(unsigned int i = 0; i < QV_OUTPUTS + TRAILER_WORDS; i++) {
         out_v[i] = 0xa5a5a5a5;
     }
@@ -128,27 +121,18 @@ int main(void)
             case QV_OP_WORD:
                 in_v[a] = c;
                 break;
-            case QV_OP_CFGW:
-                unpack_cfg(c, d, p, w);
-                for(unsigned int k = 0; k < XCORR_M; k++) {
-                    in_v[a + k] = XCORR_CFG_WORD(p[k], w[k]);
-                }
-                break;
-            case QV_OP_PAIR:
-                unpack_cfg(c, d & 0xffffu, p, w);
-                check(xcorr_golay_pair_words(p, w, d >> 16, in_v + a, in_v + a + XCORR_L));
-                break;
             case QV_OP_FIR_COEF:
                 check(fir_load_coeffs(in_v + a, c));
                 break;
-            case QV_OP_XC_CFG:
-                check(xcorr_load_cfg(in_v + a, c, d));
+            case QV_OP_XC_REF:
+                check(xcorr_load_ref(in_v + a, b));
                 break;
             case QV_OP_DATA:
                 if(port == FIR_PORT) {
                     check(fir_filter_cb(in_v + a, out_v + d, b, on_output, CTX(d, b, port)));
                 } else {
-                    check(xcorr_correlate_cb(in_v + a, out_v + d, b, on_output, CTX(d, b, port)));
+                    check(xcorr_correlate_cb(in_v + a, out_v + d, b, XC_MODE(c), XC_SHIFT(c),
+                                             on_output, CTX(d, b, port)));
                 }
                 break;
             case QV_OP_RESET:
@@ -165,14 +149,16 @@ int main(void)
                 break;
             case QV_OP_BURST:
                 // b one-sample FIR packets from in_v[a..]; after every c-th
-                // (c != 0) also a one-sample correlator packet. Outputs
-                // land consecutively from out_v[d] in issue order.
+                // (c != 0) also a one-sample correlator packet with format
+                // `port` ((mode << 8) | shift). Outputs land consecutively
+                // from out_v[d] in issue order.
                 for(unsigned int k = 0, x = a, o = d; k < b; k++) {
                     check(fir_filter_cb(in_v + x, out_v + o, 1, on_output, CTX(o, 1, FIR_PORT)));
                     x++;
                     o++;
                     if(c != 0 && k % c == 0) {
-                        check(xcorr_correlate_cb(in_v + x, out_v + o, 1, on_output, CTX(o, 1, XCORR_PORT)));
+                        check(xcorr_correlate_cb(in_v + x, out_v + o, 1, XC_MODE(port), XC_SHIFT(port),
+                                                 on_output, CTX(o, 1, XCORR_PORT)));
                         x++;
                         o++;
                     }

@@ -1,6 +1,6 @@
 # Randomized FIR + correlator muxing test
 
-Muxes FIR (port 0) and Golay correlator (port 1) packets back and forth
+Muxes FIR (port 0) and FFT correlator (`fft_corr`, port 1) packets back and forth
 through one DMA_3 -> `stream_router` -> modules -> `stream_merge` -> DMA_4
 path. It uses `fir_driver` and `xcorr_driver` on `qstream`. The firmware
 (the op interpreter), `tb.cpp` and the XSIM testbench are shared with
@@ -10,16 +10,16 @@ path. It uses `fir_driver` and `xcorr_driver` on `qstream`. The firmware
 
 `gen_vectors.py <TEST_SEED>` draws 70–110 jobs, weighted:
 
-- FIR and correlator data of random length;
-- Golay pairs for the loaded config. Some are split over two packets; a
-  mode-0/shift-M peak is asserted in the generator;
+- FIR and correlator data of random length, with a random correlator
+  output mode and shift; some packets are longer than one FFT block;
+- correlation peaks: a copy of the loaded reference after a correlator
+  RESET, sometimes split over two packets; the generator asserts the peak;
 - FIR coefficient reloads with a random shift;
-- correlator config reloads: random, sometimes non-permutation, with
-  random shift and mode;
+- correlator reference reloads of 1..N taps;
 - resets on either port;
 - route-only packets and bad routes;
 - header-only packets;
-- module error packets of 6 kinds;
+- module error packets of 7 kinds (including a reference longer than N);
 - caller-built packets and `WAIT` sync points.
 
 At a random point it also adds a burst of 260–300 single-sample FIR packets

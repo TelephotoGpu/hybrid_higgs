@@ -37,7 +37,7 @@ Every DMA_3 packet starts with a route word (port 0), and every output
 packet is preceded by a merge tag word, which qstream consumes and checks.
 After `fir_wait()`, the firmware appends `fir_last_tag()`. Its expected
 value is `0x5271<<16 | (n_data_packets-1)<<4 | 0`; any qstream receive
-error replaces it with `0xdead0000 | errors`. golay_corr sits idle on
+error replaces it with `0xdead0000 | errors`. fft_corr sits idle on
 router port 1 (see `test_qstream_1` and `test_xcorr_fir_1`).
 
 The build defines `QSTREAM_STALL_INJECT`, so the `stream_stall` shims

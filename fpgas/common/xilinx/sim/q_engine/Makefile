@@ -72,7 +72,7 @@ QENGINE_SOURCES := \
 	$(QENGINE)/hdl/stream/stream_router.v \
 	$(QENGINE)/hdl/stream/stream_merge.v \
 	$(QENGINE)/hdl/stream/stream_stall.v \
-	$(QENGINE)/hdl/xcorr/golay_corr.v \
+	$(QENGINE)/hdl/xcorr/fft_corr.v \
 	$(QENGINE)/hdl/dma/dma_in_dummy.v \
 	$(QENGINE)/hdl/nco/nco_gen.v \
 	$(BUILD)/patched/nco.v \

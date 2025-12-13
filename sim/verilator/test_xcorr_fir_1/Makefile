@@ -3,9 +3,9 @@ include $(HIGGS_ROOT)/scripts/make_include/connection_configs.defs
 ###############
 #
 #    test_xcorr_fir_1: randomized full-system test that muxes FIR (port 0)
-#    and Golay correlator (port 1) packets back and forth through
+#    and FFT correlator (port 1) packets back and forth through
 #
-#      VMEM -> DMA_3 -> stream_router -> fir_filter / golay_corr -> stream_merge -> DMA_4 -> VMEM
+#      VMEM -> DMA_3 -> stream_router -> fir_filter / fft_corr -> stream_merge -> DMA_4 -> VMEM
 #
 #    using fir_driver + xcorr_driver on qstream. qstream reads each merge tag
 #    word to decide which port (and so which expected packet) the following
@@ -36,7 +36,7 @@ QS_XILINX_SOURCES=\
 	$(Q_ENGINE_REPO)/hdl/stream/stream_router.v \
 	$(Q_ENGINE_REPO)/hdl/stream/stream_merge.v \
 	$(Q_ENGINE_REPO)/hdl/stream/stream_stall.v \
-	$(Q_ENGINE_REPO)/hdl/xcorr/golay_corr.v
+	$(Q_ENGINE_REPO)/hdl/xcorr/fft_corr.v
 
 VER_SOURCES+=$(QS_XILINX_SOURCES)
 # QSTREAM_STALL_INJECT turns the stream_stall shims around the router/merge

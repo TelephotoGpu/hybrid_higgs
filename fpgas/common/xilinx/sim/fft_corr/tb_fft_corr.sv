@@ -1,22 +1,22 @@
-// XSIM driver for golay_corr.  Replays vectors produced by gen_vectors.py
+// XSIM driver for fft_corr.  Replays vectors produced by gen_vectors.py
 // (stimulus, per-cycle valid/ready patterns, and model-expected output) and
 // self-checks: exact output data/last order, output stability while stalled,
 // input/sticky-error behaviour after each accepted beat, err_clear, no
 // spurious outputs, and completion.  Writes a CSV trace identical in format
-// to verilator_golay_corr.cpp.
-module tb_golay_corr;
-   parameter M = 7;
-   localparam MAXN = 65536;
-   localparam MAXP = 400000;
+// to verilator_fft_corr.cpp.
+module tb_fft_corr;
+   parameter N = 256;
+   localparam MAXN = 262144;
+   localparam MAXP = 2000000;
 
    reg         clk = 0, srst = 1;
    reg  [31:0] t_data = 0;
    reg         t_last = 0, t_valid = 0, i_ready = 0, err_clear = 0;
    wire        t_ready, i_valid, i_last;
    wire [31:0] i_data;
-   wire [3:0]  err;
+   wire [2:0]  err;
 
-   golay_corr #(.M(M)) dut
+   fft_corr #(.N(N)) dut
      (.clk(clk), .srst(srst),
       .t_data(t_data), .t_last(t_last), .t_valid(t_valid), .t_ready(t_ready),
       .i_data(i_data), .i_last(i_last), .i_valid(i_valid), .i_ready(i_ready),
@@ -25,7 +25,7 @@ module tb_golay_corr;
    reg [31:0] in_d [0:MAXN-1];
    reg        in_l [0:MAXN-1];
    reg        in_c [0:MAXN-1];
-   reg [3:0]  in_e [0:MAXN-1];
+   reg [2:0]  in_e [0:MAXN-1];
    reg [31:0] ex_d [0:MAXN-1];
    reg        ex_l [0:MAXN-1];
    reg        vpat [0:MAXP-1];
@@ -135,7 +135,7 @@ module tb_golay_corr;
             presenting = 0;
             cleared = 0;
          end
-         if (err_clear && err !== 4'b0) fail("err_clear did not clear");
+         if (err_clear && err !== 3'b0) fail("err_clear did not clear");
          if (idx >= n_in && oidx >= n_out) tail = tail + 1;
          #1 clk = 0;
          cyc = cyc + 1;

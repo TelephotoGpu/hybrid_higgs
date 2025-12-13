@@ -1,17 +1,17 @@
-# Out-of-context synthesis + place & route of a phase-2 stream module on the
+# Out-of-context synthesis + place & route of a Q-engine stream module on the
 # CS12 part at 125 MHz.
 #   vivado -mode batch -source qstream_ooc.tcl -tclargs <top> [PARAM=value ...]
-#   <top>: golay_corr | stream_router | stream_merge
+#   <top>: fft_corr | stream_router | stream_merge
 set script_dir [file normalize [file dirname [info script]]]
 set source_root [file normalize "$script_dir/../../../../.."]
 set part xczu7ev-ffvc1156-2-e
 if {[llength $argv] < 1} {
-    error "usage: -tclargs <golay_corr|stream_router|stream_merge> \[PARAM=value ...\]"
+    error "usage: -tclargs <fft_corr|stream_router|stream_merge> \[PARAM=value ...\]"
 }
 set top [lindex $argv 0]
 set generics [lrange $argv 1 end]
 array set src {
-    golay_corr    libs/q-engine/hdl/xcorr/golay_corr.v
+    fft_corr      libs/q-engine/hdl/xcorr/fft_corr.v
     stream_router libs/q-engine/hdl/stream/stream_router.v
     stream_merge  libs/q-engine/hdl/stream/stream_merge.v
 }

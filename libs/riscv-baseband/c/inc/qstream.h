@@ -5,7 +5,7 @@
 // (Xilinx builds only). See doc/add-fir/PLAN.md, "Phase 2".
 //
 //   VMEM -> DMA_3 -> stream_router -> port 0 fir_filter  -> stream_merge -> DMA_4 -> VMEM
-//                                  -> port 1 golay_corr  ->
+//                                  -> port 1 fft_corr    ->
 //
 // Transmit: every packet is [ROUTE word][module header][payload] with
 // `last` on the final word. The route and header words come from a ring of

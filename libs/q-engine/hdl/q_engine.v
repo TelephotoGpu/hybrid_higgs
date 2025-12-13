@@ -839,7 +839,7 @@ module q_engine
       .i_data(i_mg_data[31:0]), .i_last(i_mg_last[0]),
       .i_valid(i_mg_valid[0]), .i_ready(i_mg_ready[0]));
 
-   // ---- port 1: Golay cross-correlator
+   // ---- port 1: FFT overlap-save cross-correlator (N = 256)
    wire [31:0]           i_xcfeed_data;
    wire                  i_xcfeed_last;
    wire                  i_xcfeed_valid;
@@ -848,7 +848,7 @@ module q_engine
    wire                  i_xcout_last;
    wire                  i_xcout_valid;
    wire                  i_xcout_ready;
-   wire [3:0]            xcorr_err;
+   wire [2:0]            xcorr_err;
 
    stream_stall #(.SALT(4)) stall_xcin
      (.clk(clk), .srst(srst),
@@ -857,7 +857,7 @@ module q_engine
       .i_data(i_xcfeed_data), .i_last(i_xcfeed_last),
       .i_valid(i_xcfeed_valid), .i_ready(i_xcfeed_ready));
 
-   golay_corr #(.M(7)) golay_corr_inst
+   fft_corr #(.N(256)) fft_corr_inst
      (.clk(clk),
       .srst(srst),
       .t_data(i_xcfeed_data),

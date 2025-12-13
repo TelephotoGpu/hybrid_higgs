@@ -5,10 +5,10 @@ A Builder records ops for the op-interpreter firmware (see
 override/fpgas/cs/cs20/c/src/main.c) and, in lockstep, simulates what the
 system must produce:
 
-  * an image of in_v (xorshift32 fills, literal words, config words and
-    Golay pairs, mirroring the firmware);
+  * an image of in_v (xorshift32 fills and literal words, mirroring the
+    firmware);
   * stream_router: route word check, drop on a bad route, route-only no-op;
-  * fir_filter / golay_corr through their bit-exact Python models;
+  * fir_filter / fft_corr through their bit-exact Python models;
   * stream_merge tags: per-port output packet counts and the last tag.
 
 write() emits qs_vectors.h and expected.hex (out_v followed by the status
@@ -22,18 +22,17 @@ ROOT = os.path.join(HERE, "../../..")
 sys.path.insert(0, os.path.join(ROOT, "libs/q-engine/hdl/fir/model"))
 sys.path.insert(0, os.path.join(ROOT, "libs/q-engine/hdl/xcorr/model"))
 import fir_model as fm  # noqa: E402
-import golay_model as gm  # noqa: E402
+import fft_corr_model as xm  # noqa: E402
 
 NTAPS = 16
-M = 7
-L = 1 << M
+XN = 256          # fft_corr N in q_engine.v
 FIR_PORT, XC_PORT = 0, 1
 
 QS_MAGIC = 0x5271
 
 # op codes (must match QV_OP_* use in main.c)
-OPS = ["FILL", "WORD", "CFGW", "PAIR", "FIR_COEF", "XC_CFG", "DATA",
-       "RESET", "RAW", "WORDS", "WAIT", "BURST"]
+OPS = ["FILL", "WORD", "FIR_COEF", "XC_REF", "DATA", "RESET", "RAW", "WORDS",
+       "WAIT", "BURST"]
 OP = {name: i + 1 for i, name in enumerate(OPS)}
 
 # trailer layout (main.c)
@@ -59,10 +58,10 @@ def xorshift32(x):
     return x
 
 
-def cfg_pack(p, w):
-    pnib = sum((pk & 0xF) << (4 * k) for k, pk in enumerate(p))
-    wbits = sum((wk & 3) << (2 * k) for k, wk in enumerate(w))
-    return pnib, wbits
+def xc_fmt(mode, shift):
+    """Correlator output format as packed in an op field (main.c XC_MODE/SHIFT)."""
+    assert mode in (0, 1) and 0 <= shift <= 63
+    return (mode << 8) | shift
 
 
 class Builder:
@@ -71,10 +70,11 @@ class Builder:
         self.mem = []          # in_v image
         self.out = []          # expected out_v
         self.fir = fm.FirModel(NTAPS)
-        self.xc = gm.GolayModel(M)
+        self.xc = xm.FftCorrModel(XN)
         self.rx_count = [0, 0]
         self.arrivals = []     # port per output packet, in op order
         self.stats = {"fir_out": 0, "xc_out": 0, "dropped": 0, "route_only": 0}
+        self.fills = {}        # in_v offset -> (n, amp, seed) of each fill
 
     # ------------------------------------------------------------ memory
     def alloc(self, n):
@@ -97,8 +97,9 @@ class Builder:
             for _ in range(2):
                 x = xorshift32(x)
                 lanes.append((x % (2 * amp + 1)) - amp)
-            self.mem[off + i] = gm.pack(lanes[0], lanes[1])
+            self.mem[off + i] = xm.pack(lanes[0], lanes[1])
         self._op("FILL", a=off, b=n, c=amp, d=seed)
+        self.fills[off] = (n, amp, seed)
         return off
 
     def words(self, values):
@@ -106,24 +107,6 @@ class Builder:
         for i, v in enumerate(values):
             self.mem[off + i] = v & 0xFFFFFFFF
             self._op("WORD", a=off + i, c=v & 0xFFFFFFFF)
-        return off
-
-    def cfg_words(self, p, w):
-        off = self.alloc(M)
-        for k in range(M):
-            self.mem[off + k] = gm.cfg_word(p[k], w[k])
-        pnib, wbits = cfg_pack(p, w)
-        self._op("CFGW", a=off, c=pnib, d=wbits)
-        return off
-
-    def pair(self, p, w, amp):
-        """[a, b] Golay pair (2*L words) generated on target."""
-        assert gm.is_permutation(p) and 1 <= amp <= 0x7FFF
-        off = self.alloc(2 * L)
-        a, b = gm.golay_pair(p, w)
-        self.mem[off:off + 2 * L] = gm.seq_words(a, amp) + gm.seq_words(b, amp)
-        pnib, wbits = cfg_pack(p, w)
-        self._op("PAIR", a=off, c=pnib, d=wbits | (amp << 16))
         return off
 
     # ------------------------------------------------------------ system
@@ -138,7 +121,7 @@ class Builder:
         if not body:
             self.stats["route_only"] += 1
             return port, []
-        beats = gm.pkt_raw(body)
+        beats = xm.pkt_raw(body)
         outs = (self.fir if port == FIR_PORT else self.xc).run(beats)
         if outs:
             assert outs[-1][1] == 1 and all(l == 0 for _, l in outs[:-1])
@@ -161,20 +144,24 @@ class Builder:
                       + self.mem[off:off + NTAPS])
         self._op("FIR_COEF", a=off, c=shift)
 
-    def xc_cfg(self, off, shift, mode):
-        self._deliver([route(XC_PORT), gm.header(gm.OP_LOAD_CFG, shift, mode)]
-                      + self.mem[off:off + M])
-        self._op("XC_CFG", a=off, c=shift, d=mode)
+    def xc_ref(self, off, n):
+        assert 1 <= n <= XN
+        self._deliver([route(XC_PORT), xm.header(xm.OP_LOAD_REF)] + self.mem[off:off + n])
+        self._op("XC_REF", a=off, b=n)
 
-    def data(self, port, off, n):
-        hdr = fm.header(fm.OP_DATA) if port == FIR_PORT else gm.header(gm.OP_DATA)
+    def data(self, port, off, n, mode=0, shift=15):
+        """DATA packet; mode/shift apply to the correlator port only."""
+        if port == FIR_PORT:
+            hdr, f = fm.header(fm.OP_DATA), 0
+        else:
+            hdr, f = xm.header(xm.OP_DATA, shift, mode), xc_fmt(mode, shift)
         _, outs = self._deliver([route(port), hdr] + self.mem[off:off + n])
         d = self._collect(port, outs, n)
-        self._op("DATA", port, off, n, 0, d)
+        self._op("DATA", port, off, n, f, d)
         return outs
 
     def reset(self, port):
-        hdr = fm.header(fm.OP_RESET) if port == FIR_PORT else gm.header(gm.OP_RESET)
+        hdr = fm.header(fm.OP_RESET) if port == FIR_PORT else xm.header(xm.OP_RESET)
         self._deliver([route(port), hdr])
         self._op("RESET", port)
 
@@ -191,7 +178,7 @@ class Builder:
         self._op("WORDS", port, off, n, len(outs), d)
         return outs
 
-    def burst(self, count, xc_every, amp, seed):
+    def burst(self, count, xc_every, amp, seed, xc_mode=0, xc_shift=15):
         """count one-sample FIR packets; after every xc_every-th (k % xc_every
         == 0) also a one-sample correlator packet (firmware loop, one op)."""
         n_xc = 0 if xc_every == 0 else (count + xc_every - 1) // xc_every
@@ -203,10 +190,43 @@ class Builder:
             self._collect(FIR_PORT, outs, 1)
             x += 1
             if xc_every and k % xc_every == 0:
-                _, outs = self._deliver([route(XC_PORT), gm.header(gm.OP_DATA), self.mem[x]])
+                _, outs = self._deliver([route(XC_PORT), xm.header(xm.OP_DATA, xc_shift, xc_mode),
+                                         self.mem[x]])
                 self._collect(XC_PORT, outs, 1)
                 x += 1
-        self._op("BURST", 0, off, count, xc_every, d0)
+        self._op("BURST", xc_fmt(xc_mode, xc_shift), off, count, xc_every, d0)
+
+    def xc_shift(self, amp, extra=0):
+        """Shift that puts a typical mode-0 output for noise of lane amplitude
+        amp near 2^13 with the loaded reference (+extra)."""
+        e = sum(a * a + q * q for a, q in (xm.unpack(w) for w in self.xc.ref))
+        typ = int((e ** 0.5) * amp) + 1
+        return max(0, min(63, typ.bit_length() - 13 + extra))
+
+    def peak(self, ref_off, split=None):
+        """Re-create the fill at ref_off (same seed) and correlate it as mode 0
+        data (split into two packets at `split` if given). The last output is
+        sum |ref|^2 >> shift; assert the model is within its precision.
+        Resets the correlator history first.
+        Valid only while that fill is the loaded reference."""
+        n, amp, seed = self.fills[ref_off]
+        e = sum(a * a + q * q for a, q in (xm.unpack(w) for w in self.mem[ref_off:ref_off + n]))
+        shift = max(0, e.bit_length() - 14)
+        off = self.fill(n, amp, seed)
+        # large earlier samples in the overlap-save window add forward-FFT
+        # noise scaled by the reference gain; start from a clean history
+        self.reset(XC_PORT)
+        if split:
+            self.data(XC_PORT, off, split, 0, shift)
+            outs = self.data(XC_PORT, off + split, n - split, 0, shift)
+        else:
+            outs = self.data(XC_PORT, off, n, 0, shift)
+        pi, pq = xm.unpack(outs[-1])
+        want = e / (1 << shift)
+        # model error is ~0.7 rms / <4 max internal LSBs (2^g in y units)
+        tol = 2 + 4 * 2 ** max(0, self.xc.g - shift)
+        assert abs(pi - want) <= tol and abs(pq) <= tol, (pi, pq, want, tol)
+        return pi
 
     def wait(self):
         self._op("WAIT")
@@ -229,6 +249,8 @@ class Builder:
             for name in OPS:
                 f.write("#define QV_OP_%-9s (%d)\n" % (name, OP[name]))
             f.write("\n#define QV_WORDS   (%d)\n" % max(1, len(self.mem)))
+            # 24 bytes per op in the 25 KB imem next to about 5 KB of code
+            assert len(self.ops) <= 700, "op table too large for imem: %d ops" % len(self.ops)
             f.write("#define QV_OPS     (%d)\n" % len(self.ops))
             f.write("#define QV_OUTPUTS (%d)\n\n" % len(self.out))
             f.write("// {op, port, a, b, c, d}\n")

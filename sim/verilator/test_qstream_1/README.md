@@ -5,7 +5,7 @@ Drives both stream modules through the full platform with the `qstream`,
 
 ```text
 VMEM -> DMA_3 -> stream_router -> port 0 fir_filter  -> stream_merge -> DMA_4 -> VMEM -> DMA_1 -> CS20 stream
-                               -> port 1 golay_corr  ->
+                               -> port 1 fft_corr    ->
 ```
 
 ## How it works
@@ -13,7 +13,7 @@ VMEM -> DMA_3 -> stream_router -> port 0 fir_filter  -> stream_merge -> DMA_4 ->
 - **Firmware** (`override/fpgas/cs/cs20/c/src/main.c`, shared with
   `test_xcorr_fir_1`) interprets an op table:
   - builds its input in VMEM: xorshift32 noise, literal words, correlator
-    config words, and Golay pairs from `xcorr_golay_pair_words()`;
+    and copies of earlier fills (correlator references and peaks);
   - sends packets on both ports back to back;
   - waits once at the end (plus explicit `WAIT` ops).
 
@@ -23,7 +23,7 @@ VMEM -> DMA_3 -> stream_router -> port 0 fir_filter  -> stream_merge -> DMA_4 ->
 - **Generator.** `gen_vectors.py` (on `qs_gen.py`) mirrors all of this:
   - the firmware's memory image;
   - `stream_router` routing and drops;
-  - the bit-exact FIR and Golay Python models;
+  - the bit-exact FIR and FFT correlator Python models;
   - the merge tags.
 
   It writes `qs_vectors.h` and `expected.hex`.
@@ -40,13 +40,15 @@ VMEM -> DMA_3 -> stream_router -> port 0 fir_filter  -> stream_merge -> DMA_4 ->
 - route-only packets on both ports;
 - bad routes: port 2, port 15, bad magic, reserved bits, and a lone route word;
 - interleaved data on both ports, including 1-sample packets;
-- a Golay pair `[a, b]` whose mode-0 peak is checked in the generator;
+- correlation peaks: a copy of the loaded reference sent as data, whole or
+  split over two packets, after a correlator RESET. The generator asserts the
+  model's last output is within its precision of `sum |ref|^2 >> shift`;
 - header-only DATA packets, which produce no output and no tag;
 - module error packets on both modules. They produce no output, and state
   is kept, or RESET is applied;
 - a caller-built packet via `qstream_send_words` + `qstream_expect`;
-- resets, a non-permutation correlator config, and modes 1 and 2 with
-  shifts 3 and 12;
+- reference reloads (1..N taps) and resets, power mode (mode 1), and
+  packets longer than one FFT block (N+1 samples);
 - 48 alternating back-to-back small packets plus a 20-packet single-port
   burst. Both overflow the 16-deep per-port expect queue.
 

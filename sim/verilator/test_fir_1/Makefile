@@ -31,7 +31,7 @@ FIR_XILINX_SOURCES=\
 	$(Q_ENGINE_REPO)/hdl/stream/stream_router.v \
 	$(Q_ENGINE_REPO)/hdl/stream/stream_merge.v \
 	$(Q_ENGINE_REPO)/hdl/stream/stream_stall.v \
-	$(Q_ENGINE_REPO)/hdl/xcorr/golay_corr.v
+	$(Q_ENGINE_REPO)/hdl/xcorr/fft_corr.v
 
 VER_SOURCES+=$(FIR_XILINX_SOURCES)
 # Verilator gets the behavioural XPM model; XSIM links the vendor xpm library.

@@ -200,6 +200,9 @@ tag never carries `last`, and payload `last` passes through unchanged.
 
 ## Golay correlator (`golay_corr`)
 
+> **Superseded by phase 3:** `fft_corr` replaced `golay_corr` on port 1,
+> and the Golay RTL, model and harness were deleted (see git history).
+
 This is an Efficient Golay Correlator (EGC): no multipliers and no BRAM.
 The parameter `M` (default 7) sets the stage count, so `L = 2^M = 128`.
 
@@ -339,3 +342,167 @@ The framing mirrors the FIR contract.
 5. Correlator integrated on port 1.
 6. `qstream` library and `test_qstream_1`.
 7. `test_xcorr_fir_1`: multi-seed and stall-injected.
+
+# Phase 3: FFT overlap-save correlator (`fft_corr`, replaces `golay_corr`)
+
+The goals were an arbitrary reference and an architecture unlike the FIR and
+Golay designs.
+
+## Decisions
+
+| # | Topic | Decision |
+|---|---|---|
+| 1 | Goal | Arbitrary loadable reference |
+| 2 | Reference alphabet | Full 16-bit complex (packed like the FIR: I `15:0`, Q `31:16`) |
+| 3 | Length | Parameter `N` (maximum taps), default 256, power of 2 from 16 to 1024 |
+| 4 | Throughput | At least one sample per 4 clk (31.25 MSPS); backpressure above that |
+| 5 | Engine | Own radix-2² SDF pipelines: one forward (DIF) and one inverse (DIT) core |
+| 6 | Reference load | Time-domain taps; the hardware FFTs them into an H BRAM |
+| 7 | Framing | One output per input, `last` follows the input, history persists |
+| 8 | Numerics | Deterministic fixed point, bit-exact Python model |
+| 9 | Modes | 0 = complex y (sat16 I/Q); 1 = \|y\|² (unsigned 32-bit) |
+| 10 | Golay | Deleted; `fft_corr` takes router port 1 |
+| 11 | Reference length | 1..N taps; front zero-padded, so the peak lands on the last matched sample |
+| 12 | Encoding | Below |
+| 13 | Verification | Below |
+
+## Function
+
+`K = 2N`. For a loaded reference `ref[0..R-1]` (1 <= R <= N):
+
+```text
+y[n] = sum_{i=0}^{R-1} conj(ref[i]) * x[n-R+1+i]
+```
+
+Samples before the last RESET (or power-up) count as 0. This is computed by
+overlap-save:
+
+- `c[k] = conj(ref[R-1-k])` for k < R, else 0 (length K).
+- A block is the last K input samples `w[0..K-1]` (the newest is
+  `w[K-1]`), launched after `m` new samples.
+- `z = IFFT(FFT(w) · FFT(c))`. Positions `K-m .. K-1` are the m new
+  outputs; they are free of wrap because `m <= B = K-N+1 = N+1`.
+
+**Block rule** (bits depend on block boundaries, so this is part of the
+contract): a block launches when a DATA packet has accumulated `B` new
+samples, and at its `last` beat if `0 < m < B`. Boundaries depend only on
+the sample sequence and packet framing, never on timing.
+
+## Numerics (bit-exact)
+
+These use `W = 27` data bits (the 27-bit DSP port) and `TW = 18` twiddle
+and H bits, so each real multiply is one DSP48E2. A study showed that 24
+bits gave about 13 output LSB rms error in the worst case (identity
+reference, full-scale noise), while 27 bits gives about 1.7 LSB there and
+0.3–1 LSB on realistic correlations.
+
+- `rs(v, s)` rounds half up, `(v + 2^(s-1)) >> s`, for s > 0. For s <= 0
+  it is `v << -s`. `sat_b` saturates to b-bit signed.
+- **Twiddles:** `W_K^t = (round(cos(2πt/K)·A), round(-sin(2πt/K)·A))`
+  with `A = 2^17 - 1`.
+  - They are derived from one quarter-wave table
+    `Q[u] = round(cos(2πu/KMAX)·A)`, u = 0..KMAX/4, KMAX = 2048, using
+    symmetry, so every K ≤ KMAX shares one ROM with identical values.
+  - The ROM is generated into `fft_corr.v` (between the
+    `BEGIN/END generated fftc_qrom` markers) by
+    `python3 model/fft_corr_model.py --qrom fft_corr.v`.
+  - Complex multiply by a twiddle: each rail is
+    `rs(exact integer sum of products, 17)`.
+  - The inverse uses `conj(W)`.
+- **Forward FFT (DIF radix-2², natural in, bit-reversed out).** For group
+  size `S = K, K/4, ...` while `S >= 4`, on each group:
+  1. butterfly with span S/2, `(a+b, a-b)`, each rail `rs(·,1)`;
+  2. multiply positions `[3S/4, S)` by `-j` (exact);
+  3. butterfly with span S/4, `rs(·,1)`;
+  4. if `S > 4`, multiply position `q·S/4 + t` by `W_S^(t·e_q)` with
+     `e = [0, 2, 1, 3]`.
+
+  If `log2 K` is odd, a final span-1 butterfly (`rs(·,1)`) follows. The
+  overall gain is `1/K`.
+- **Inverse FFT (DIT radix-2², bit-reversed in, natural out).** This is the
+  exact transpose of the forward FFT with `+j` and conjugated twiddles:
+  - the lone span-1 butterfly first (odd `log2 K`);
+  - then for `S = 4, 16, ..., K`:
+    1. twiddle (if `S > 4`);
+    2. span-S/4 butterfly;
+    3. `+j` on positions `[3S/4, S)`;
+    4. span-S/2 butterfly.
+
+  Every butterfly rounds `rs(·,1)`, so the overall gain is `1/K`
+  (normalized IDFT).
+- **Data path:** input rails go in as `x << 9`.
+  1. `X = FFT(w)`.
+  2. `P = sat_27(rs(X·H, 17))`, with each rail from exact products.
+  3. `v = IFFT(P)`, 27-bit rails.
+- **Reference path (at LOAD_REF commit, and at `srst` with `ref = [0x7fff]`):**
+  1. `F = FFT(c << 9)`.
+  2. `e = 17 - bitlen(max |rail of F|)` (e = 0 if F = 0).
+  3. `H = sat_18(rs(F, -e))`.
+- **Scale:** `v ≈ y · 2^-g`, with `g = 2·log2(K) - 1 - e`.
+  - Mode 0: `out = sat16(rs(v_rail, s - g))` per rail.
+  - Mode 1: `out = satu32(rs(vI² + vQ², s - 2g))`.
+
+  `s` is the header shift, 0..63. A negative total shift is a left shift
+  and saturates.
+
+## Framing
+
+| Bits | Field |
+|---|---|
+| `31:16` | magic `0xFC0A` |
+| `15:14` | mode (DATA only): 0 = complex, 1 = \|y\|²; 2 and 3 are a bad header |
+| `13:8` | shift 0..63 (DATA only) |
+| `7:4` | reserved, must be 0 |
+| `3:0` | op: 1 = DATA, 2 = LOAD_REF, 3 = RESET |
+
+- **DATA:** one output per sample, with the packet's mode and shift. A
+  header-only packet is a no-op.
+- **LOAD_REF:** 1..N tap words. They are staged, validated at `last`, then
+  FFT'd into H. The data history is kept.
+- **RESET:** clears the input history and keeps H.
+- LOAD_REF and RESET take effect in stream order: `t_ready` stays low
+  while earlier blocks drain and H is recomputed.
+- Non-DATA headers must have mode = shift = 0.
+- **Sticky errors** (each drains the packet to `last` with no output):
+  - `err[0]` bad header;
+  - `err[1]` LOAD_REF length 0 or greater than N (H is unchanged);
+  - `err[2]` RESET with a payload (the reset is still applied).
+- **Power-up:** `ref = [0x7fff]` (R = 1), so y = 32767·x (use shift 15 for
+  unity gain).
+
+## Micro-architecture
+
+- An input ring buffer (BRAM, 2K samples) with a fill counter: slots older
+  than RESET, or never written, read as 0.
+- A block scheduler feeds the K-sample window into the DIF core at 1/clk.
+  - Only one block may be pending at a time.
+  - A block launches only when the output FIFO has room for its m results.
+    After launch the pipeline never stalls.
+- `X·H`: H is a K×2×27 BRAM (raw F plus exponent e), normalized on read,
+  in bit-reversed order, the same as X.
+- The DIT core outputs z in natural order. The first K-m samples are
+  discarded. The last m go through the mode/shift stage into the output
+  FIFO (depth ≥ 2B), tagged with `last` on the packet's final sample.
+- A tap staging BRAM (N words) holds LOAD_REF taps. After a valid `last`
+  and a full pipeline drain, the scheduler feeds `c` (reversed, conjugated,
+  zero-padded) into the DIF core and captures F and e.
+- Steady state is B new samples per K+overhead clocks, about 0.5
+  sample/clk. A short packet costs one full block (about K clocks plus the
+  pipeline depth).
+
+## Verification and timing (phase 3)
+
+1. `fft_corr_model.py` self-test:
+   - the output against the exact integer correlation, with an asserted
+     error bound;
+   - peak position with front padding;
+   - split packets (block rule);
+   - all framing and error rules;
+   - float cross-check of the FFT structure.
+2. `fpgas/common/xilinx/sim/fft_corr` harness: about 20 random
+   valid/ready/`last`/error seeds at N=256 plus N=16 and N=64. RTL must
+   equal the model in Verilator and XSIM, and a mutation check is
+   included.
+3. Golay removed; `xcorr_driver`, `qs_gen.py`, test_qstream_1 and
+   test_xcorr_fir_1 updated; seed sweep; XSIM on one seed each.
+4. OOC timing at N=256 and N=1024, plus a full CS12 build.

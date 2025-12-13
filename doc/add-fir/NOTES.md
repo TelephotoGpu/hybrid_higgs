@@ -430,3 +430,116 @@ Part xczu7ev-ffvc1156-2-e, 125 MHz, Vivado 2025.2.
     72 RAMB36.
   - Against phase 1 (WNS +2.320, 31,062 LUTs, 132 DSPs): +2.8k LUTs and
     no new DSPs. The correlator is multiplier-free.
+
+# Phase 3 notes (FFT overlap-save correlator replaces `golay_corr`)
+
+## phase-3 contract
+
+Third design interview (grill-me): replace `golay_corr` with an FFT
+overlap-save correlator, `fft_corr`, with an arbitrary 16-bit complex
+reference of 1..N taps (N=256 in q_engine). The contract is the phase-3
+section of `PLAN.md`; the Golay section there is marked superseded.
+
+## `fft_corr` model
+
+- `libs/q-engine/hdl/xcorr/model/fft_corr_model.py` is bit-exact and
+  self-tests against the exact integer correlation, split packets, peak
+  position, framing and errors, and a float FFT cross-check.
+- Rails were raised from the planned 24 bits to 27 (the DSP48E2 A port).
+  With an identity reference and full-scale noise, 24 bits gave about
+  13 LSB rms error; 27 bits gives 1.07 rms / 3 max at N=256 and
+  5.6 rms / 22 max at N=1024.
+- Twiddles come from one quarter-wave table (KMAX=2048, 513 entries), so
+  every N shares one ROM. The ROM is generated into `fft_corr.v`:
+  `python3 model/fft_corr_model.py --qrom ../fft_corr.v`.
+- Precision is fixed-scale: the internal output LSB is 2^g in y units
+  (g = 2·log2 K - 1 - e, e set by the reference), and the model error is
+  about 0.7 rms / under 4 max of those LSBs. Large samples still in the
+  2K-sample window add forward-FFT noise scaled by the reference gain: for
+  a small reference (amplitude 0x40) after full-scale data this reaches
+  about 90 internal LSBs. `qs_gen.peak()` therefore resets the correlator
+  before checking a peak.
+
+## `fft_corr` RTL and harness
+
+- `libs/q-engine/hdl/xcorr/fft_corr.v`: radix-2² SDF DIF forward and DIT
+  inverse cores (`fftc_bf`, `fftc_jrot`, `fftc_tw`), a 2K-sample input
+  ring, an H BRAM (raw F, normalized on read), a metadata FIFO and a
+  4N-deep output FIFO with launch credit. LOAD_REF and RESET wait for the
+  pipeline to drain.
+- Bring-up bugs:
+  - the DIT group size must be `S = K >> 2(NG-1-gi)` (4<<2gi was wrong for
+    odd log2 K);
+  - the harness compiled its absolute-path driver `.cpp` into
+    `$(Mdir)/..`, shared across N, and a stale object corrupted the heap.
+    Mdir is now `build/verilator/n$N/obj`. The fir_filter and
+    stream_router_merge harnesses use relative paths and are not affected.
+- Harness `fpgas/common/xilinx/sim/fft_corr`: 20 seeds at N=256 plus
+  N=16, 32, 64, 128, 512 and 1024 (32 runs), random valid/ready/`last`,
+  all three error bits. `make compare`: **32/32 PASS**, Verilator and XSIM
+  traces identical. Seed 0 throughput 0.523 samples/clk (minimum 0.45).
+- Mutation check: 11 mutants (twiddle/butterfly/format rounding, zero
+  mask, error bit, output credit, reference length, reference conjugate,
+  mode 1, ROM value, H saturation) are each caught. H saturation needed a
+  dedicated packet (16x 0x7fff + 15 taps makes the DC bin 2^19-1, e=-2).
+  P saturation is unreachable (kept defensively, as in the model).
+
+## integration, drivers and system tests
+
+- `q_engine.v` port 1 is `fft_corr #(.N(256))`; `xcorr_err` is 3 bits.
+  Source lists (q_engine and vex_machine_top harnesses, test_fir_1,
+  test_qstream_1, test_xcorr_fir_1, CS12 `build.tcl`) use `fft_corr.v`.
+  The Golay RTL, model and harness were deleted.
+- `xcorr_driver`: `xcorr_load_ref`, `xcorr_reset`,
+  `xcorr_correlate[_cb](in, out, n, mode, shift, ...)`, `xcorr_send_raw`,
+  `xcorr_last_tag`. The firmware op table has `XC_REF`; DATA and BURST
+  carry the correlator mode and shift.
+- Results (Verilator):
+  - `test_fir_1`: 476 samples, 0 mismatches;
+  - `test_qstream_1`: 1368 words, 0 mismatches (303k cycles);
+  - `test_xcorr_fir_1`: see the seed table below.
+- Running two full-system builds at once races on the shared
+  `fpgas/cs/cs01/c` firmware build (it produced a nested `build/build/...`
+  tree). Run them one at a time.
+
+## timing, phase 3
+
+Part xczu7ev-ffvc1156-2-e, 125 MHz, Vivado 2025.2.
+
+| module | WNS | WHS | LUT | FF | DSP | BRAM tiles |
+|---|---|---|---|---|---|---|
+| fft_corr N=256 | +2.154 | +0.008 | 10,070 (902 mem) | 4,504 | 40 | 9.5 |
+| fft_corr N=1024 | +2.281 | +0.019 | 11,774 (973 mem) | 5,530 | 48 | 18 |
+
+- The worst OOC path is the mode-0 output shift (`o2_sh1` -> `o3_w`,
+  21 levels, 9 CARRY8).
+- CS12 full implementation: all constraints met. Setup WNS +1.825 ns (worst
+  path pre-existing, in piston `unode28`), hold WHS +0.010 ns. 41,099 LUTs,
+  37,203 FFs, 172 DSPs, 81.5 BRAM tiles. Against phase 2 (33,843 LUTs, 132
+  DSPs, 72 RAMB36): +7.3k LUTs, +40 DSPs, +9.5 BRAM tiles.
+
+## system seed sweep, phase 3
+
+`test_xcorr_fir_1` (Verilator). All pairs pass with 0 mismatches against the models:
+
+| TEST:STALL | cycles | samples |
+|---|---|---|
+| 1:9 | 1,288,829 | 4,991 |
+| 2:7, 3:3, 4:11, 5:5, 6:13, 7:2, 8:17 | pass (first sweep) | |
+| 9:9 | 1,143,427 | 5,155 |
+| 10:23 | 1,155,286 | 4,943 |
+| 11:4 | 1,266,256 | 6,036 |
+| 12:31 | 1,115,735 | 4,827 |
+| 13:6 | 1,165,312 | 5,465 |
+| 14:8 | 1,208,098 | 5,764 |
+| 15:15 | 1,041,922 | 3,931 |
+| 16:1 | 1,524,456 | 6,803 |
+
+- Seed 10 first failed with imem overflow: the over-long reference
+  (`mod_err` kind 5) used one WORD op per tap (976 ops, 24 B each; imem is
+  25 KB). It now sends the payload with FILL. `qs_gen.write()` asserts at
+  most 700 ops.
+- XSIM: `test_qstream_1` `make xsim_compare` passes (1368 words, Verilator
+  and XSIM identical).
+- XSIM: `test_xcorr_fir_1` `make xsim_compare TEST_SEED=1 STALL_SEED=1`
+  passes (4991 words, Verilator and XSIM identical).
